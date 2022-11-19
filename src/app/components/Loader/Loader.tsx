@@ -20,11 +20,13 @@ export const Loader = () => {
 
   const progress = useMemo(() => Math.round((itemsLoaded * 100) / itemsTotal) || 0, [itemsLoaded, itemsTotal]);
 
-  const mainBtnLabel = useMemo(() => {
-    if (loaderState === LoaderState.INITIALIZING || loaderState === LoaderState.CHECKING || loaderState === LoaderState.UP_TO_DATE) {
-      return "Jouer";
-    } else {
-      return "Mettre à jour";
+  const mainBtnProps = useMemo(() => {
+    switch (loaderState) {
+      case LoaderState.INITIALIZING:
+      case LoaderState.UP_TO_DATE:
+        return { label: "Jouer", className: styles.bigText };
+      default:
+        return { label: "Mettre à jour" };
     }
   }, [loaderState]);
 
@@ -104,9 +106,9 @@ export const Loader = () => {
     <>
       <Progress label={progressLabel} progress={progress} hideProgress={loaderState === LoaderState.INITIALIZING} />
       <MainButton
-        label={mainBtnLabel}
+        label={mainBtnProps.label}
         disabled={mainBtnDisabled}
-        btnClassName={cx(styles.mainBtn, { [styles.bigText]: loaderState === LoaderState.UP_TO_DATE || loaderState === LoaderState.INITIALIZING })}
+        btnClassName={cx(styles.mainBtn, mainBtnProps.className)}
         onClick={mainBtnClick}
       />
     </>
