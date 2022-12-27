@@ -1056,7 +1056,7 @@
     username "^5.1.0"
     yarn-or-npm "^3.0.1"
 
-"@electron-forge/maker-base@^6.0.0-beta.63", "@electron-forge/maker-base@^6.0.4":
+"@electron-forge/maker-base@^6.0.4":
   version "6.0.4"
   resolved "https://registry.yarnpkg.com/@electron-forge/maker-base/-/maker-base-6.0.4.tgz#7de68dd11d2a670b552860aea01767870bb44f92"
   integrity sha512-qJJ2oPFlyt6u/H67WLfZL0JclSpFj4VwxPfwxqNL/HcwXULJcOeat7oqJLY9UKBE4U2j+++xbA3LSoPAErroIg==
@@ -1513,14 +1513,13 @@
   dependencies:
     "@octokit/openapi-types" "^12.11.0"
 
-"@reforged/maker-appimage@^2.1.3":
-  version "2.1.3"
-  resolved "https://registry.yarnpkg.com/@reforged/maker-appimage/-/maker-appimage-2.1.3.tgz#b08ee7719473d1f3995bfe8a4561967bd8d3a353"
-  integrity sha512-4R51DNwspmtj76W0I6hOMD5NQFhR8Wyi96BKRAnqATBVh5IWbB7mu8//huregikNnFZn8GqVODsfEHQklH7Gkw==
+"@reforged/maker-appimage@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@reforged/maker-appimage/-/maker-appimage-3.0.0.tgz#caa6506da1f817ac1aa1e2cdd84e8f3e3ab0d275"
+  integrity sha512-VCz4CtjgMdVoMFnAabvEutTZvOLWWdcZMKAbNOEdK0jvRP3dXVjOcW0M4Nh8YNPob8eUD0555XAJrBnNpvYxLQ==
   dependencies:
-    "@electron-forge/maker-base" "^6.0.0-beta.63"
+    "@electron-forge/maker-base" "^6.0.4"
     node-fetch "^3.2.5"
-    source-map-support "^0.5.21"
 
 "@sindresorhus/is@^4.0.0":
   version "4.6.0"
@@ -6430,7 +6429,7 @@ socks@^2.6.2:
   resolved "https://registry.yarnpkg.com/source-map-js/-/source-map-js-1.0.2.tgz#adbc361d9c62df380125e7f161f71c826f1e490c"
   integrity sha512-R0XvVJ9WusLiqTCEiGCmICCMplcCkIwwR11mOSD9CR5u+IXYdiseeEuXCVAjS54zqwkLcPNnmU4OeJ6tUrWhDw==
 
-source-map-support@^0.5.13, source-map-support@^0.5.21, source-map-support@~0.5.20:
+source-map-support@^0.5.13, source-map-support@~0.5.20:
   version "0.5.21"
   resolved "https://registry.yarnpkg.com/source-map-support/-/source-map-support-0.5.21.tgz#04fe7c7f9e1ed2d662233c28cb2b35b9f63f6e4f"
   integrity sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w==
