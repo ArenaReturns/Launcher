@@ -8,6 +8,28 @@ export const TitleBar = () => {
   const [devMode, toggleDevMode] = useState(false);
   const [debugMode, setDebugMode] = useState<DebugMode>(DebugMode.NO_DEBUG);
 
+  const [devOptions, setDevOptions] = useState({
+    "dumpMixinified": true,
+    "printMixinsLoadOrder": true,
+    "launchGame": true,
+    "applyMixins": true,
+    "discordIntegration": true,
+    "redirectLogs": true
+  });
+
+  const toogleDevOption = (e: React.MouseEvent<HTMLLIElement>, type: string) => {
+    setDevOptions(prevState => ({
+      ...prevState,
+      // @ts-ignore
+      [type]: !prevState[type]
+    }));
+    e.stopPropagation(); //we prevent the event from closing the whole menu
+  };
+
+  useEffect(() => {
+    window.api.ipc.send("toogleDevOption", devOptions);
+  }, [devOptions])
+
   const handleChange = () => {
     setMenuVisible(!menuVisible);
   };
@@ -68,6 +90,12 @@ export const TitleBar = () => {
             {/* Dev mode options*/}
             {devMode && repairVisible && <li onClick={clearLogs} className={styles.clearLogs}>Effacer les logs</li>}
             {devMode && <li onClick={nextDebugMode}>Debug mode: {DebugMode[debugMode]}</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "dumpMixinified")}>{devOptions["dumpMixinified"] ? '✔' : '✘'} Dump mixinified</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "printMixinsLoadOrder")}>{devOptions["printMixinsLoadOrder"] ? '✔' : '✘'} Print mixins order</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "applyMixins")}>{devOptions["applyMixins"] ? '✔' : '✘'} Apply mixins</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "discordIntegration")}>{devOptions["discordIntegration"] ? '✔' : '✘'} Discord Integration</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "redirectLogs")}>{devOptions["redirectLogs"] ? '✔' : '✘'} Redirect logs</li>}
+            {devMode && <li onClick={e => toogleDevOption(e, "launchGame")}>{devOptions["launchGame"] ? '✘' : '✔'} Do not start game</li>}
           </ul>
         </div>
       </div>

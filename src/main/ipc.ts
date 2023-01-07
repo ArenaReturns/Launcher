@@ -16,6 +16,7 @@ export enum DebugMode {
 
 export namespace IPC {
   let devMode = false;
+  let devOptions = {};
   let debugMode: DebugMode = DebugMode.NO_DEBUG;
 
   export function registerEvents(mainWindow: BrowserWindow) {
@@ -25,7 +26,11 @@ export namespace IPC {
 
     ipcMain.on("changeDebugMode", (_event, mode:DebugMode) => {
       debugMode = mode;
-    })
+    });
+
+    ipcMain.on("toogleDevOption", (_event, newDevOptions) => {
+      devOptions = newDevOptions;
+    });
 
     ipcMain.on("clearLogs", () => {
       const baseLogDir = path.join(Constants.GAME_PATH, "game");
@@ -150,5 +155,9 @@ export namespace IPC {
 
   export function getDebugMode() {
     return debugMode;
+  }
+
+  export function getDevOptions() {
+    return devOptions;
   }
 }

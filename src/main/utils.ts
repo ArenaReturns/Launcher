@@ -76,9 +76,11 @@ export namespace Utils {
     // Wrapper entrypoint
     javaArgs.push("com.arenareturns.client.ArenaReturnsWrapper");
 
-    if (IPC.isDevMode()) {
-      //enable debug mode in the wrapper
-      javaArgs.push("debugWrapper");
+    //add additionnal options
+    let devOptions = IPC.getDevOptions();
+    for (let devOptionsKey in devOptions) {
+      // @ts-ignore
+      javaArgs.push("-" + devOptionsKey + " " + devOptions[devOptionsKey]);
     }
 
     return javaArgs.join(" ");
