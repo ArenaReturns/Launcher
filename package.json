@@ -103,7 +103,7 @@
     "@electron-forge/maker-squirrel": "^6.0.5",
     "@electron-forge/maker-zip": "^6.0.5",
     "@electron-forge/plugin-webpack": "6.0.5",
-    "@electron-forge/publisher-github": "^6.0.5",
+    "@electron-forge/publisher-github": "^6.1.0",
     "@reforged/maker-appimage": "^3.1.8",
     "@svgr/webpack": "^6.5.1",
     "@types/react": "^18.0.28",
