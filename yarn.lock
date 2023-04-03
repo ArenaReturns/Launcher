@@ -1566,10 +1566,10 @@
   dependencies:
     "@octokit/openapi-types" "^12.11.0"
 
-"@reforged/maker-appimage@^3.1.8":
-  version "3.1.8"
-  resolved "https://registry.yarnpkg.com/@reforged/maker-appimage/-/maker-appimage-3.1.8.tgz#06784ebd14f8b98236629cae366600486176ccb2"
-  integrity sha512-3Ih8BXWEKGdLEZgCQ3JF0hRVRjydZEkKsfETMwO8Th021wiJJL8MzRBiXQjV3AGN7XsQ5pr5QgUXZ7poGUoyyA==
+"@reforged/maker-appimage@^3.1.9":
+  version "3.1.9"
+  resolved "https://registry.yarnpkg.com/@reforged/maker-appimage/-/maker-appimage-3.1.9.tgz#0b2a0236b9a96dbd33825ecc021385efb0f37ac7"
+  integrity sha512-nzq96gGiHUzuhcap+hZty2Fubw+tQ0ysHg67DVVwFGE6Umnbel3WD5+9d+BL6dukHuR86lgHOmFKVzfC1xiBWA==
   dependencies:
     "@electron-forge/maker-base" "^6.0.4"
     "@spacingbat3/lss" "^1.0.0"
