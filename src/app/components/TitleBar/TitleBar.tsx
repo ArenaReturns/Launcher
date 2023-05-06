@@ -9,8 +9,8 @@ export const TitleBar = () => {
   const [debugMode, setDebugMode] = useState<DebugMode>(DebugMode.NO_DEBUG);
 
   const [devOptions, setDevOptions] = useState({
-    "dumpMixinified": true,
-    "printMixinsLoadOrder": true,
+    "dumpMixinified": false,
+    "printMixinsLoadOrder": false,
     "launchGame": true,
     "applyMixins": true,
     "discordIntegration": true,
