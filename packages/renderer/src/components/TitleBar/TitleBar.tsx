@@ -122,6 +122,7 @@ export const TitleBar = () => {
             {devMode && <li onClick={e => toogleDevOption(e, "redirectLogs")}>{devOptions["redirectLogs"] ? "✔" : "✘"} Redirect logs</li>}
             {devMode && <li onClick={e => toogleDevOption(e, "launchGame")}>{devOptions["launchGame"] ? "✘" : "✔"} Do not start game</li>}
           </ul>
+          <div className={styles.appVersion}>v{import.meta.env.VITE_APP_VERSION}</div>
         </div>
       </div>
       <div className={styles.right}>

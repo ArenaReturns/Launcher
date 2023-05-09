@@ -13,7 +13,7 @@ export async function loadManifest() {
     manifest = await got.get(`${Constants.CDN_URL}/manifest.json`).json();
 
     // Automatic updates are only available on Windows
-    if (process.platform !== "win32" && manifest.launcherVersion !== Constants.CURRENT_LAUNCHER_VERSION) {
+    if (process.platform !== "win32" && manifest.launcherVersion !== app.getVersion()) {
       const response = await dialog.showMessageBox(browserWindow, {
         type: "warning",
         buttons: ["Ignorer", "Télécharger"],

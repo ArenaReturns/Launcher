@@ -52,6 +52,14 @@
       align-items: center;
       font: normal normal normal 1em/1.2em Arial, sans-serif;
 
+      .appVersion {
+        position: absolute;
+        bottom: 2rem;
+        padding: 10px;
+        font-size: 0.8em;
+        color: gray;
+      }
+
       li {
         color: whitesmoke;
         padding: 5px 5px 7px 31px;
