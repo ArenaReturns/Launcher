@@ -10,6 +10,20 @@
   background-repeat: no-repeat;
   background-position: 50% 50%;
 
+  .loader {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+
+    .loaderText {
+      margin-top: 1.5em;
+      color: white;
+      font-size: 1.5em;
+    }
+  }
+
   .container {
     flex: 1;
     box-sizing: border-box;
@@ -18,7 +32,7 @@
 
     .topPart {
       gap: 1em;
-      color:white;
+      color: white;
       display: flex;
       padding: 1em;
       padding-bottom: 0;
