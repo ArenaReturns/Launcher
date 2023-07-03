@@ -16,6 +16,7 @@ export enum DebugMode {
   AGENT_SUSPENDED,
 }
 
+let launcherReady = false;
 let devMode = false;
 let devOptions: Record<string, unknown> = {};
 let debugMode: DebugMode = DebugMode.NO_DEBUG;
@@ -150,6 +151,10 @@ export function registerHandlers(mainWindow: BrowserWindow) {
   ipcMain.handle("getCarouselData", async () => {
     return CdnService.manifest.carousel;
   });
+
+  ipcMain.handle("getLauncherReady", async () => {
+    return launcherReady;
+  });
 }
 
 export function isDevMode() {
@@ -162,4 +167,12 @@ export function getDebugMode() {
 
 export function getDevOptions() {
   return devOptions;
+}
+
+export function getLauncherReady() {
+  return launcherReady;
+}
+
+export function setLauncherReady(value: boolean) {
+  launcherReady = value;
 }

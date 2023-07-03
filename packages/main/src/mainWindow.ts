@@ -7,8 +7,6 @@ import log from "electron-log";
 export let browserWindow: BrowserWindow;
 
 async function createWindow() {
-  await CdnService.loadManifest();
-
   browserWindow = new BrowserWindow({
     minWidth: 1024,
     minHeight: 576,
@@ -77,6 +75,12 @@ async function createWindow() {
 
   IPC.registerEvents(browserWindow);
   IPC.registerHandlers(browserWindow);
+
+  CdnService.loadManifest().then(() => {
+    log.info("Setting launcherReady state to true");
+    IPC.setLauncherReady(true);
+    browserWindow.webContents.send("setLauncherReady", true);
+  });
 
   return browserWindow;
 }
