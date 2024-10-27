@@ -1,4 +1,5 @@
 import electron from "electron";
+// Test
 const { ipcRenderer } = electron;
 
 export function ipcSend(channel: string, ...args: any[]) {
