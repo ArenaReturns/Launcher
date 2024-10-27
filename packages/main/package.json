@@ -13,9 +13,12 @@
   "dependencies": {
     "@arenareturnslauncher/preload": "*",
     "@arenareturnslauncher/renderer": "*",
+    "@sec-ant/readable-stream": "0.6.0",
     "electron-log": "5.2.0",
     "electron-updater": "6.3.9",
+    "form-data-encoder": "4.0.2",
     "got": "14.4.3",
+    "is-stream": "4.0.1",
     "p-queue": "8.0.1"
   },
   "devDependencies": {
