@@ -1,3 +1,4 @@
+import { ipcSend, ipcOn } from "@arenareturnslauncher/preload";
 import React, { useEffect, useState } from "react";
 import styles from "./TitleBar.module.scss";
 import { DebugMode } from "../../types";
@@ -35,7 +36,7 @@ export const TitleBar = () => {
   };
 
   useEffect(() => {
-    window.api.ipc.send("toogleDevOption", devOptions);
+    ipcSend("toogleDevOption", devOptions);
   }, [devOptions]);
 
   const handleChange = () => {
@@ -43,43 +44,43 @@ export const TitleBar = () => {
   };
 
   const openGameDir = (e: React.MouseEvent<HTMLLIElement>) => {
-    window.api.ipc.send("openGameDir");
+    ipcSend("openGameDir");
     e.stopPropagation(); //we prevent the event from closing the whole menu
   };
 
   const openStatus = (e: React.MouseEvent<HTMLLIElement>) => {
-    window.api.ipc.send("openUrl", "https://status.arena-returns.com/");
+    ipcSend("openUrl", "https://status.arena-returns.com/");
     e.stopPropagation(); //we prevent the event from closing the whole menu
   };
 
   const closeApp = () => {
-    window.api.ipc.send("close");
+    ipcSend("close");
   };
 
   const minimizeApp = () => {
-    window.api.ipc.send("minimize");
+    ipcSend("minimize");
   };
 
   const nextDebugMode = (e: React.MouseEvent<HTMLLIElement>) => {
     const next: DebugMode = (debugMode + 1) % DebugMode.__LENGTH;
     setDebugMode(next);
-    window.api.ipc.send("changeDebugMode", next);
+    ipcSend("changeDebugMode", next);
     e.stopPropagation(); //we prevent the event from closing the whole menu
   };
 
   const clearLogs = () => {
-    window.api.ipc.send("clearLogs");
+    ipcSend("clearLogs");
   };
 
   const repairApp = () => {
-    window.api.ipc.send("repair");
+    ipcSend("repair");
   };
 
   useEffect(() => {
-    window.api.ipc.on("setRepairVisible", (_event: Event, visible: boolean) => {
+    ipcOn("setRepairVisible", (_event: Event, visible: boolean) => {
       setRepairVisible(visible);
     });
-    window.api.ipc.on("devModeEnabled", (_event: Event) => {
+    ipcOn("devModeEnabled", (_event: Event) => {
       toggleDevMode(true);
     });
   }, []);

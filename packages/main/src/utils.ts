@@ -1,7 +1,7 @@
-import { Constants } from "./constants";
+import { Constants } from "./constants.js";
 import * as path from "path";
 import * as fs from "fs";
-import * as IPC from "./ipc";
+import * as IPC from "./ipc.js";
 
 export const buildJavaArgs = (platform: NodeJS.Platform) => {
   const javaArgs: Array<string> = [];

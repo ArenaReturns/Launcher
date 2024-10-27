@@ -1,0 +1,24 @@
+{
+  "name": "@arenareturnslauncher/main",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,tsx,json}\""
+  },
+  "files": [
+    "dist/**"
+  ],
+  "dependencies": {
+    "@arenareturnslauncher/preload": "*",
+    "@arenareturnslauncher/renderer": "*",
+    "electron-log": "5.2.0",
+    "electron-updater": "6.3.9",
+    "got": "14.4.3",
+    "p-queue": "8.0.1"
+  },
+  "devDependencies": {
+    "vite": "5.4.10"
+  }
+}

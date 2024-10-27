@@ -2,11 +2,11 @@ import * as path from "path";
 import * as fs from "fs";
 import { app, dialog, ipcMain, shell } from "electron";
 import type { BrowserWindow } from "electron";
-import { Constants } from "./constants";
-import * as CdnService from "./cdnService";
-import * as Updater from "./updater";
+import { Constants } from "./constants.js";
+import * as CdnService from "./cdnService.js";
+import * as Updater from "./updater.js";
 import { exec } from "child_process";
-import * as Utils from "./utils";
+import * as Utils from "./utils.js";
 import log from "electron-log";
 
 export enum DebugMode {

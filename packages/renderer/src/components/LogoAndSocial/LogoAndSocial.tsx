@@ -1,3 +1,4 @@
+import { ipcSend } from "@arenareturnslauncher/preload";
 import styles from "./LogoAndSocial.module.scss";
 import twitterIcon from "../../../assets/img/twitter.png";
 import discordIcon from "../../../assets/img/discord.png";
@@ -6,7 +7,7 @@ import youtubeIcon from "../../../assets/img/youtube.png";
 
 const openUrl = (e: React.MouseEvent<HTMLAnchorElement>) => {
   e.preventDefault();
-  window.api.ipc.send("openUrl", e.currentTarget.href);
+  ipcSend("openUrl", e.currentTarget.href);
 };
 
 export const LogoAndSocial = () => {

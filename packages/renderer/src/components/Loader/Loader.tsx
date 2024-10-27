@@ -1,3 +1,4 @@
+import { ipcSend, ipcInvoke, ipcOn } from "@arenareturnslauncher/preload";
 import MainButton from "../MainButton";
 import Progress from "../Progress";
 import styles from "./Loader.module.scss";
@@ -57,19 +58,19 @@ export const Loader = () => {
 
   function startUpdating() {
     setLoaderState(LoaderState.CHECKING);
-    window.api.ipc.send("startUpdate");
+    ipcSend("startUpdate");
   }
 
   function launchGame() {
     setForceDisableButton(true);
-    window.api.ipc.send("launchGame");
+    ipcSend("launchGame");
     setTimeout(() => {
       setForceDisableButton(false);
     }, 3000);
   }
 
   useEffect(() => {
-    window.api.ipc.invoke("isUpdateNeeded").then((updateNeeded: boolean) => {
+    ipcInvoke("isUpdateNeeded").then((updateNeeded: boolean) => {
       if (updateNeeded) {
         setLoaderState(LoaderState.UPDATE_REQUIRED);
       } else {
@@ -81,25 +82,25 @@ export const Loader = () => {
     });
 
     // Getting the new state from the main process
-    window.api.ipc.on("itemsLoadedUpdate", (_event: Event, itemsLoaded: number) => {
+    ipcOn("itemsLoadedUpdate", (_event: Event, itemsLoaded: number) => {
       setItemsLoaded(itemsLoaded);
     });
 
-    window.api.ipc.on("itemsTotalUpdate", (_event: Event, itemsTotal: number) => {
+    ipcOn("itemsTotalUpdate", (_event: Event, itemsTotal: number) => {
       setItemsTotal(itemsTotal);
     });
 
-    window.api.ipc.on("repairStarted", (_event: Event) => {
+    ipcOn("repairStarted", (_event: Event) => {
       startUpdating();
     });
 
-    window.api.ipc.on("downloadStarted", (_event: Event, itemsTotal: number) => {
+    ipcOn("downloadStarted", (_event: Event, itemsTotal: number) => {
       setLoaderState(LoaderState.DOWNLOADING);
       setItemsLoaded(0);
       setItemsTotal(itemsTotal);
     });
 
-    window.api.ipc.on("upToDate", (_event: Event) => {
+    ipcOn("upToDate", (_event: Event) => {
       setLoaderState(LoaderState.UP_TO_DATE);
       // Fill progressbar
       setItemsLoaded(1);

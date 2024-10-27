@@ -1,0 +1,30 @@
+{
+  "name": "@arenareturnslauncher/renderer",
+  "type": "module",
+  "main": "./dist/index.html",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,tsx,json}\""
+  },
+  "files": [
+    "dist/**"
+  ],
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.3",
+    "normalize.css": "8.0.1",
+    "sass-embedded": "1.80.4",
+    "typescript": "5.6.3",
+    "vite": "5.4.10"
+  },
+  "dependencies": {
+    "@arenareturnslauncher/preload": "*",
+    "classnames": "2.5.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-konami-code": "2.3.0",
+    "react-responsive-carousel": "3.2.23"
+  }
+}

@@ -2,7 +2,7 @@
   "editor.tabSize": 2,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
-  "editor.formatOnSaveMode": "modifications",
+  "editor.formatOnSaveMode": "file",
   "prettier.printWidth": 150,
   "typescript.tsserver.maxTsServerMemory": 8000,
   "[json]": {

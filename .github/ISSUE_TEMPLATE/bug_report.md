@@ -9,7 +9,7 @@ labels: bug
 **Décrivez le bug**
 Une description claire et concise du bug que vous rencontrez.
 
-**To Reproduce**
+**Reproduction**
 Les étapes pour reproduire le bug, exemple :
 
 1. Aller sur '...'

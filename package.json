@@ -1,59 +1,46 @@
 {
   "name": "arenareturnslauncher",
   "description": "Le launcher officiel d'Arena Returns",
-  "version": "2.0.5",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
   "author": {
-    "email": "contact@arena-returns.com",
+    "email": "contact@arenareturns.com",
     "name": "Arena Returns",
-    "url": "https://arena-returns.com"
+    "url": "https://arenareturns.com"
   },
-  "main": "packages/main/dist/index.cjs",
+  "main": "packages/entry-point.js",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": "^23"
+  },
   "scripts": {
-    "build": "yarn build:main && yarn build:preload && yarn build:renderer",
-    "build:main": "cd ./packages/main && vite build",
-    "build:preload": "cd ./packages/preload && vite build",
-    "build:renderer": "cd ./packages/renderer && vite build",
-    "compile": "cross-env MODE=production yarn build && electron-builder build --config .electron-builder.config.js --dir",
-    "watch": "node scripts/watch.mjs",
-    "lint": "eslint . --ext js,mjs,cjs,ts,mts,cts,tsx",
-    "format": "prettier --write \"**/*.{js,mjs,cjs,ts,mts,cts,tsx,json}\"",
-    "typecheck": "yarn typecheck:main && yarn typecheck:preload && yarn typecheck:renderer",
-    "typecheck:main": "tsc --noEmit -p packages/main/tsconfig.json",
-    "typecheck:preload": "tsc --noEmit -p packages/preload/tsconfig.json",
-    "typecheck:renderer": "tsc --noEmit -p packages/renderer/tsconfig.json",
-    "postinstall": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/update-electron-vendors.mjs"
+    "build": "npm run build -ws",
+    "compile": "cross-env MODE=production npm run build && electron-builder build --config electron-builder.config.mjs --dir",
+    "watch": "node scripts/watch.js",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck -ws",
+    "postinstall": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/update-electron-vendors.js",
+    "format": "npm run format -ws"
   },
   "devDependencies": {
-    "@types/node": "18.16.5",
-    "@types/react": "18.2.6",
-    "@types/react-dom": "18.2.4",
-    "@typescript-eslint/eslint-plugin": "5.59.2",
-    "@typescript-eslint/parser": "5.59.2",
-    "@vitejs/plugin-react": "4.0.0",
+    "@eslint/eslintrc": "3.1.0",
+    "@eslint/js": "9.13.0",
+    "@npmcli/map-workspaces": "4.0.1",
+    "@types/node": "20.17.1",
     "cross-env": "7.0.3",
-    "electron": "24.2.0",
-    "electron-builder": "23.6.0",
-    "eslint": "8.40.0",
-    "eslint-plugin-react-hooks": "4.6.0",
-    "eslint-plugin-react-refresh": "0.4.1",
-    "nano-staged": "0.8.0",
-    "normalize.css": "8.0.1",
-    "prettier": "2.8.8",
-    "sass": "1.62.1",
-    "simple-git-hooks": "2.8.1",
-    "typescript": "5.0.4",
-    "unplugin-auto-expose": "0.0.4",
-    "vite": "4.3.9"
+    "electron": "33.0.2",
+    "electron-builder": "25.1.8",
+    "eslint": "9.13.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-react": "7.37.2",
+    "eslint-plugin-react-hooks": "5.0.0",
+    "globals": "15.11.0",
+    "typescript-eslint": "8.11.0"
   },
   "dependencies": {
-    "classnames": "2.3.2",
-    "electron-log": "4.4.8",
-    "electron-updater": "5.3.0",
-    "got": "11.8.6",
-    "p-queue": "6.6.2",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-konami-code": "2.3.0",
-    "react-responsive-carousel": "3.2.23"
+    "@arenareturnslauncher/main": "*"
   }
 }

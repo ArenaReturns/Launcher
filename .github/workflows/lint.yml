@@ -1,7 +1,27 @@
-name: Lint
 on:
   workflow_dispatch:
-  workflow_call:
+  push:
+    paths:
+      - '**.js'
+      - '**.mjs'
+      - '**.cjs'
+      - '**.jsx'
+      - '**.ts'
+      - '**.mts'
+      - '**.cts'
+      - '**.tsx'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - '**.js'
+      - '**.mjs'
+      - '**.cjs'
+      - '**.jsx'
+      - '**.ts'
+      - '**.mts'
+      - '**.cts'
+      - '**.tsx'
+      - 'package-lock.json'
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -14,21 +34,28 @@ defaults:
 jobs:
   eslint:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'yarn'
-      - run: yarn install --frozen-lockfile
-      - run: yarn lint
+          cache: 'npm'
+          node-version: '23'
+
+      - run: npm ci
+
+      - run: npm run lint --if-present
+
+  # This job just check code style for in-template contributions.
   code-style:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'yarn'
-      - run: yarn install --frozen-lockfile
-      - run: npx --no-install prettier --check "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json}"
+          cache: 'npm'
+          node-version: '23'
+
+      - run: npm i prettier
+      - run: npm run format

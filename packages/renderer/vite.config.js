@@ -1,10 +1,6 @@
-/* eslint-env node */
-
 import { chrome } from "../../.electron-vendors.cache.json";
 import react from "@vitejs/plugin-react";
-import { renderer } from "unplugin-auto-expose";
 import { join } from "node:path";
-import { injectAppVersion } from "../../version/inject-app-version-plugin.mjs";
 
 const PACKAGE_ROOT = __dirname;
 const PROJECT_ROOT = join(PACKAGE_ROOT, "../..");
@@ -28,6 +24,13 @@ const config = {
       strict: true,
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: "modern-compiler",
+      },
+    },
+  },
   build: {
     sourcemap: true,
     target: `chrome${chrome}`,
@@ -39,13 +42,10 @@ const config = {
     emptyOutDir: true,
     reportCompressedSize: false,
   },
-  plugins: [
-    react(),
-    renderer.vite({
-      preloadEntry: join(PACKAGE_ROOT, "../preload/src/index.ts"),
-    }),
-    injectAppVersion(),
-  ],
+  test: {
+    environment: "happy-dom",
+  },
+  plugins: [react()],
 };
 
 export default config;

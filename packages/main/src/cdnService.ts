@@ -1,9 +1,22 @@
-import type { Manifest } from "../../renderer/src/types";
-import { Constants } from "./constants";
+import { Constants } from "./constants.js";
 import { app, dialog, shell } from "electron";
 import got from "got";
-import { browserWindow } from "./mainWindow";
+import { browserWindow } from "./mainWindow.js";
 import log from "electron-log";
+
+// TODO: Avoid duplication of types between renderer and main
+type CarouselItem = {
+  id: number;
+  title: string;
+  image: string;
+  link: string;
+};
+
+type Manifest = {
+  launcherVersion: string;
+  gameVersion: string;
+  carousel: Array<CarouselItem>;
+};
 
 export let manifest: Manifest;
 
@@ -22,7 +35,7 @@ export async function loadManifest() {
       });
 
       if (response && response.response === 1) {
-        shell.openExternal("https://launcher.arena-returns.com/download/linux");
+        shell.openExternal(Constants.CDN_URL + "/download/linux");
         app.quit();
       }
     }

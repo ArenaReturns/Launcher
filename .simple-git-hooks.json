@@ -1,3 +1,0 @@
-{
-  "pre-commit": "npx --no-install nano-staged"
-}

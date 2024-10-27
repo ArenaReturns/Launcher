@@ -8,6 +8,7 @@ interface MainButtonProps {
   disabled?: boolean;
   onClick: () => void;
 }
+
 export const MainButton = ({ label, className, btnClassName, disabled, onClick }: MainButtonProps) => {
   return (
     <div className={cx(className, styles.MainButton)}>

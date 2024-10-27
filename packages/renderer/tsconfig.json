@@ -1,22 +1,39 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
-    "skipLibCheck": true,
-    "noEmit": true,
+    "target": "ESNext",
     "sourceMap": false,
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
     "strict": true,
     "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
-    "types": ["node", "electron", "vite/client"],
+    "jsx": "preserve",
+    "types": [
+      "node"
+    ],
     "baseUrl": ".",
     "paths": {
-      "#preload": ["../preload/src/index"],
-      "/@/*": ["./src/*"]
-    }
+      "/@/*": [
+        "./src/*"
+      ],
+      "@arenareturnslauncher/*": [
+        "../*"
+      ]
+    },
+    "lib": [
+      "ESNext",
+      "dom",
+      "dom.iterable"
+    ]
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "types/**/*.d.ts",
+    "../../types/**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
 }

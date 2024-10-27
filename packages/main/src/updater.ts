@@ -1,12 +1,12 @@
 import { app, dialog } from "electron";
 import got from "got";
-import * as CdnService from "./cdnService";
-import { Constants } from "./constants";
+import * as CdnService from "./cdnService.js";
+import { Constants } from "./constants.js";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import PQueue from "p-queue";
-import { browserWindow } from "./mainWindow";
+import { browserWindow } from "./mainWindow.js";
 
 type FileManifest = {
   path: string;
@@ -132,8 +132,7 @@ async function downloadAndSave(fileUrl: string, filePath: string) {
 async function downloadFiles(files: Array<FileManifest>) {
   browserWindow.webContents.send("downloadStarted", files.length);
 
-  // @ts-expect-error Weird bundling error
-  const queue: PQueue = new PQueue.default({ concurrency: 2 });
+  const queue: PQueue = new PQueue({ concurrency: 2 });
 
   for (const file of files) {
     const filePath = path.join(Constants.GAME_PATH, file.path);

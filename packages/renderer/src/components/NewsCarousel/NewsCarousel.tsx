@@ -1,3 +1,4 @@
+import { ipcInvoke } from "@arenareturnslauncher/preload";
 import { useEffect, useState } from "react";
 import type { CarouselItem } from "../../types";
 
@@ -9,7 +10,7 @@ export const NewsCarousel = () => {
   const [slideData, setSlideData] = useState<CarouselItem[]>();
 
   useEffect(() => {
-    window.api.ipc.invoke("getCarouselData").then((carouselData: Array<CarouselItem>) => {
+    ipcInvoke("getCarouselData").then((carouselData: Array<CarouselItem>) => {
       setSlideData(carouselData);
     });
   }, []);

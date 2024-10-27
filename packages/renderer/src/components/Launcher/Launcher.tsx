@@ -1,3 +1,4 @@
+import { ipcSend } from "@arenareturnslauncher/preload";
 import { useKonami } from "react-konami-code";
 import Loader from "../Loader";
 import LogoAndSocial from "../LogoAndSocial";
@@ -6,11 +7,11 @@ import TitleBar from "../TitleBar";
 import styles from "./Launcher.module.scss";
 
 const enableDevMode = () => {
-  window.api.ipc.send("enableDevMode");
+  ipcSend("enableDevMode");
 };
 
 const toggleDevTools = () => {
-  window.api.ipc.send("toggleDevTools");
+  ipcSend("toggleDevTools");
 };
 
 export const Launcher = () => {

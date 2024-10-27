@@ -1,18 +1,22 @@
 {
   "compilerOptions": {
-    "module": "esnext",
-    "target": "esnext",
+    "allowSyntheticDefaultImports": true,
+    "module": "NodeNext",
+    "target": "ESNext",
     "sourceMap": false,
-    "moduleResolution": "Node",
+    "moduleResolution": "NodeNext",
     "skipLibCheck": true,
     "strict": true,
     "isolatedModules": true,
-    "esModuleInterop": true,
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "/@/*": ["./src/*"]
+      "/@/*": ["./src/*"],
+      "@arenareturnslauncher/*": [
+        "../*"
+      ]
     }
   },
-  "include": ["src/**/*.ts", "../../types/**/*.d.ts"]
+  "include": ["src/**/*.ts", "../../types/**/*.d.ts"],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
 }
