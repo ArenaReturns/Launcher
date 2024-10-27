@@ -34,11 +34,11 @@ concurrency:
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
+
   draft_release:
     permissions:
       contents: write # Allows this job to create releases
+    needs: [ lint ]  # Ensure draft_release only runs if lint succeeds
+    uses: ./.github/workflows/release.yml
     with:
       dry-run: ${{ github.event_name != 'push' || github.ref_name != 'master' }}
-    needs: [ lint ]
-    uses: ./.github/workflows/release.yml
-
