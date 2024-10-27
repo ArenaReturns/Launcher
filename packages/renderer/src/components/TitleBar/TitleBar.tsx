@@ -1,5 +1,6 @@
 import { ipcSend, ipcOn } from "@arenareturnslauncher/preload";
-import React, { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import styles from "./TitleBar.module.scss";
 import { DebugMode } from "../../types";
 

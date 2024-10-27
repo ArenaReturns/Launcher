@@ -1,3 +1,4 @@
+import type React from "react";
 import { ipcSend } from "@arenareturnslauncher/preload";
 import styles from "./LogoAndSocial.module.scss";
 import twitterIcon from "../../../assets/img/twitter.png";

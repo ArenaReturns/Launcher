@@ -1,7 +1,9 @@
-import globals from 'globals';
-import js from '@eslint/js';
+import globals from "globals";
+import js from "@eslint/js";
 import typescriptLint from "typescript-eslint";
-import eslintConfigPrettier from 'eslint-config-prettier';
+import eslintConfigPrettier from "eslint-config-prettier";
+import reactPlugin from "eslint-plugin-react";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
   {
@@ -9,14 +11,17 @@ export default [
   },
   js.configs.recommended,
   ...typescriptLint.configs.recommended,
-  "plugin:react/recommended",
-  "plugin:react/jsx-runtime",
-  "plugin:react-hooks/recommended",
+  reactPlugin.configs.flat.recommended,
+  reactPlugin.configs.flat["jsx-runtime"],
   // Disable a set of rules that may conflict with prettier
   // You can safely remove this if you don't use prettier
   eslintConfigPrettier,
   {
     files: ["**/*.js", "**/*.mjs", "**/*.ts", "**/*.mts", "**/*.tsx"],
+
+    plugins: {
+      "react-hooks": reactHooksPlugin,
+    },
 
     languageOptions: {
       globals: {
@@ -26,8 +31,10 @@ export default [
         parser: "@typescript-eslint/parser",
       },
     },
-
     rules: {
+      "react/react-in-jsx-scope": "off",
+      ...reactHooksPlugin.configs.recommended.rules,
+
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -38,16 +45,10 @@ export default [
 
       "@typescript-eslint/no-var-requires": "off",
       "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/no-implicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "off",
       semi: ["error", "always"],
       "comma-dangle": ["warn", "always-multiline"],
-
-      quotes: [
-        "warn",
-        "single",
-        {
-          avoidEscape: true,
-        },
-      ],
 
       "no-undef": ["error"],
     },

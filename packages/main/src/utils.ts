@@ -1,8 +1,10 @@
+//import type NodeJS from "node";
 import { Constants } from "./constants.js";
 import * as path from "path";
 import * as fs from "fs";
 import * as IPC from "./ipc.js";
 
+// eslint-disable-next-line no-undef
 export const buildJavaArgs = (platform: NodeJS.Platform) => {
   const javaArgs: Array<string> = [];
 

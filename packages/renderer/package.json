@@ -4,7 +4,7 @@
   "main": "./dist/index.html",
   "scripts": {
     "build": "vite build",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,tsx,json}\""
   },
   "files": [

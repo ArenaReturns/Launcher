@@ -45,9 +45,7 @@ jobs:
       - run: npm ci
 
       - run: npm run lint --if-present
-
-  # This job just check code style for in-template contributions.
-  code-style:
+  typescript:
     runs-on: ubuntu-latest
 
     steps:
@@ -57,5 +55,6 @@ jobs:
           cache: 'npm'
           node-version: '23'
 
-      - run: npm i prettier
-      - run: npm run format
+      - run: npm ci
+
+      - run: npm run typecheck --if-present
