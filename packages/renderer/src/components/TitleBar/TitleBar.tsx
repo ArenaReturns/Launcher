@@ -50,7 +50,7 @@ export const TitleBar = () => {
   };
 
   const openStatus = (e: React.MouseEvent<HTMLLIElement>) => {
-    ipcSend("openUrl", "https://status.arena-returns.com/");
+    ipcSend("openUrl", "https://status.arenareturns.com/");
     e.stopPropagation(); //we prevent the event from closing the whole menu
   };
 

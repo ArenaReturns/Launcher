@@ -21,7 +21,7 @@ export const LogoAndSocial = () => {
           <a className={styles.twitter} href="https://twitter.com/ArenaReturns" onClick={openUrl}>
             <img src={twitterIcon} alt="Twitter" />
           </a>
-          <a className={styles.discord} href="https://discord.gg/arenareturns" onClick={openUrl}>
+          <a className={styles.discord} href="https://discord.gg/arena-returns-934862812075917353" onClick={openUrl}>
             <img src={discordIcon} alt="Discord" />
           </a>
           <a className={styles.twitch} href="https://twitch.tv/ArenaReturns" onClick={openUrl}>
