@@ -15,17 +15,6 @@ on:
       - .gitignore
       - '.idea/**'
       - '.vscode/**'
-  pull_request:
-    paths-ignore:
-      - '.github/**'
-      - '!.github/workflows/ci.yml'
-      - '!.github/workflows/typechecking.yml'
-      - '!.github/workflows/release.yml'
-      - '**.md'
-      - .editorconfig
-      - .gitignore
-      - '.idea/**'
-      - '.vscode/**'
 
 concurrency:
   group: ci-${{ github.ref }}

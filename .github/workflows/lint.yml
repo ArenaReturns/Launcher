@@ -1,16 +1,6 @@
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    paths:
-      - '**.js'
-      - '**.mjs'
-      - '**.cjs'
-      - '**.jsx'
-      - '**.ts'
-      - '**.mts'
-      - '**.cts'
-      - '**.tsx'
-      - 'package-lock.json'
   pull_request:
     paths:
       - '**.js'
