@@ -27,7 +27,6 @@ if [ -z "$FILES_UPDATED" ]; then
 fi
 
 check_command "npm run lint --if-present" "Linting"
-check_command "npm run format --if-present -- -- --write" "Formatting"
 check_command "npm run typecheck --if-present" "Typecheck"
 
 # Add back the modified/prettified files to staging
