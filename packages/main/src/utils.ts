@@ -57,8 +57,8 @@ export const buildJavaArgs = (platform: NodeJS.Platform) => {
   const libPath = path.join(Constants.GAME_PATH, "lib");
   const libFiles = fs.readdirSync(libPath);
   // The dark magic we use to patch bugs requires the wrapper to be loaded after the client.
-  classPath.push("core.jar");
   classPath.push("wrapper.jar");
+  classPath.push("core.jar");
   switch (platform) {
     case "win32":
       libFiles.forEach(file => {
