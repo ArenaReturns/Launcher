@@ -2,6 +2,12 @@
   "name": "@arenareturnslauncher/renderer",
   "type": "module",
   "main": "./dist/index.html",
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions"
+  ],
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",
@@ -11,19 +17,19 @@
     "dist/**"
   ],
   "devDependencies": {
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
-    "@vitejs/plugin-react": "4.3.3",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "@vitejs/plugin-react": "4.3.4",
     "normalize.css": "8.0.1",
-    "sass-embedded": "1.80.4",
-    "typescript": "5.6.3",
-    "vite": "5.4.10"
+    "sass-embedded": "1.85.1",
+    "typescript": "5.8.2",
+    "vite": "6.2.2"
   },
   "dependencies": {
     "@arenareturnslauncher/preload": "*",
     "classnames": "2.5.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-konami-code": "2.3.0",
     "react-responsive-carousel": "3.2.23"
   }
