@@ -4,6 +4,7 @@ import { SettingsMenu } from "./SettingsMenu";
 import { Navigation } from "./launcher/Navigation";
 import { GameTab } from "./launcher/GameTab";
 import { TwitchTab } from "./launcher/TwitchTab";
+import { ReplaysTab } from "./launcher/ReplaysTab";
 import {
   Dialog,
   DialogContent,
@@ -113,6 +114,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
           {activeTab === "game" && (
             <GameTab gameStatus={gameStatus} updateStatus={updateStatus} />
           )}
+          {activeTab === "replays" && <ReplaysTab gameStatus={gameStatus} />}
           {activeTab === "twitch" && <TwitchTab />}
         </div>
 
