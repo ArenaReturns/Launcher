@@ -21,7 +21,6 @@ const tabs: TabConfig[] = [
     label: "REPLAYS",
     icon: Video,
     color: "bg-orange-900",
-    disabled: true,
   },
   {
     id: "ladder",

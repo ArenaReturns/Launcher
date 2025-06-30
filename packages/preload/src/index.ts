@@ -48,6 +48,9 @@ const gameClient = {
   repairClient: () => ipcRenderer.invoke("game:repairClient"),
   openGameDirectory: () => ipcRenderer.invoke("game:openGameDirectory"),
   openReplaysFolder: () => ipcRenderer.invoke("game:openReplaysFolder"),
+  listReplays: () => ipcRenderer.invoke("game:listReplays"),
+  launchReplay: (replayPath: string, settings?: any) =>
+    ipcRenderer.invoke("game:launchReplay", replayPath, settings),
   updateSettings: (settings: any) =>
     ipcRenderer.invoke("game:updateSettings", settings),
 };

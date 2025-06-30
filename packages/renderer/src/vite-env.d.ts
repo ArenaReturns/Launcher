@@ -32,6 +32,15 @@ interface GameSettings {
   devCdnEnvironment: "production" | "staging";
 }
 
+interface ReplayFile {
+  filename: string;
+  fullPath: string;
+  date?: Date;
+  player1?: string;
+  player2?: string;
+  isValidFormat: boolean;
+}
+
 interface GameClient {
   getStatus: () => Promise<GameStatus>;
   checkForUpdates: () => Promise<GameStatus>;
@@ -39,9 +48,11 @@ interface GameClient {
   getDownloadProgress: () => Promise<DownloadProgress>;
   cancelDownload: () => Promise<void>;
   launchGame: (settings?: GameSettings) => Promise<void>;
+  launchReplay: (replayPath: string, settings?: GameSettings) => Promise<void>;
   repairClient: () => Promise<void>;
   openGameDirectory: () => Promise<void>;
   openReplaysFolder: () => Promise<void>;
+  listReplays: () => Promise<ReplayFile[]>;
   updateSettings: (settings: GameSettings) => Promise<void>;
 }
 

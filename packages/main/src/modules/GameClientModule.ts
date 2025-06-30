@@ -68,6 +68,21 @@ export interface GameSettings {
   devCdnEnvironment: "production" | "staging";
 }
 
+export interface ReplayFile {
+  filename: string;
+  fullPath: string;
+  isValidFormat: boolean;
+  date?: Date;
+  player1?: string;
+  player2?: string;
+}
+
+interface JavaProcessOptions {
+  mainClass: string;
+  settings?: GameSettings;
+  extraArgs?: string[];
+}
+
 export class GameClientModule implements AppModule {
   private gameClientPath: string;
   private versionFilePath: string;
@@ -117,6 +132,10 @@ export class GameClientModule implements AppModule {
     ipcMain.handle("game:openReplaysFolder", () => this.openReplaysFolder());
     ipcMain.handle("game:updateSettings", (event, settings) =>
       this.updateSettings(settings)
+    );
+    ipcMain.handle("game:listReplays", () => this.listReplays());
+    ipcMain.handle("game:launchReplay", (event, replayPath, settings) =>
+      this.launchReplay(replayPath, settings)
     );
   }
 
@@ -312,7 +331,10 @@ export class GameClientModule implements AppModule {
       }
 
       // Launch the game with settings
-      await this.startGameProcess(settings);
+      await this.startJavaProcess({
+        mainClass: "com.ankamagames.dofusarena.client.DofusArenaClient",
+        settings,
+      });
     } catch (error) {
       throw new Error(
         `Failed to launch game: ${
@@ -404,65 +426,167 @@ export class GameClientModule implements AppModule {
     }
   }
 
-  private async clearGameData(): Promise<void> {
+  async listReplays(): Promise<ReplayFile[]> {
+    const replaysPath = join(this.gameClientPath, "game", "replays");
+
     try {
-      // Remove version file to force re-download
-      if (existsSync(this.versionFilePath)) {
-        await unlink(this.versionFilePath);
-      }
+      // Create replays directory if it doesn't exist
+      await mkdir(replaysPath, { recursive: true });
 
-      // Clear the game directory except for user data
-      if (existsSync(this.gameClientPath)) {
-        const entries = await readdir(this.gameClientPath);
+      // Read directory contents
+      const files = await readdir(replaysPath);
 
-        for (const entry of entries) {
-          const fullPath = join(this.gameClientPath, entry);
+      // Filter for .rda files and parse them
+      const replayFiles: ReplayFile[] = [];
 
-          // Skip user data directories
-          if (this.isExcludedFromCleanup(entry)) {
-            continue;
-          }
-
-          const entryStat = await stat(fullPath);
-
-          if (entryStat.isDirectory()) {
-            await this.removeDirectory(fullPath);
-          } else {
-            await unlink(fullPath);
-          }
+      for (const filename of files) {
+        if (!filename.toLowerCase().endsWith(".rda")) {
+          continue;
         }
+
+        const fullPath = join(replaysPath, filename);
+        const replayInfo = this.parseReplayFilename(filename, fullPath);
+        replayFiles.push(replayInfo);
       }
+
+      // Sort by date (newest first) if valid, otherwise by filename
+      replayFiles.sort((a, b) => {
+        if (a.date && b.date) {
+          return b.date.getTime() - a.date.getTime();
+        } else if (a.date && !b.date) {
+          return -1;
+        } else if (!a.date && b.date) {
+          return 1;
+        } else {
+          return a.filename.localeCompare(b.filename);
+        }
+      });
+
+      return replayFiles;
     } catch (error) {
       throw new Error(
-        `Failed to clear game data: ${
+        `Failed to list replays: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
   }
 
-  private async removeDirectory(dirPath: string): Promise<void> {
+  async launchReplay(
+    replayPath: string,
+    settings?: GameSettings
+  ): Promise<void> {
     try {
-      const entries = await readdir(dirPath);
+      // First check if game is installed and up to date
+      const gameStatus = await this.getGameStatus();
 
-      for (const entry of entries) {
-        const fullPath = join(dirPath, entry);
-        const entryStat = await stat(fullPath);
-
-        if (entryStat.isDirectory()) {
-          await this.removeDirectory(fullPath);
-        } else {
-          await unlink(fullPath);
-        }
+      if (!gameStatus.isInstalled) {
+        throw new Error("Game is not installed");
       }
 
-      await rmdir(dirPath);
+      if (gameStatus.needsUpdate) {
+        throw new Error("Game needs to be updated before launching replays");
+      }
+
+      if (gameStatus.error) {
+        throw new Error(`Cannot launch replay: ${gameStatus.error}`);
+      }
+
+      // Check if replay file exists
+      if (!existsSync(replayPath)) {
+        throw new Error("Replay file not found");
+      }
+
+      // Launch the replay with the replay player
+      await this.startJavaProcess({
+        mainClass: "com.ankamagames.dofusarena.client.DofusArenaReplayPlayer",
+        settings,
+        extraArgs: [`-REPLAY_FILE_PATH=${replayPath}`],
+      });
     } catch (error) {
-      // Ignore errors - directory might already be removed
+      throw new Error(
+        `Failed to launch replay: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
-  private async startGameProcess(settings?: GameSettings): Promise<void> {
+  private parseReplayFilename(filename: string, fullPath: string): ReplayFile {
+    // Expected formats:
+    // 1. 56_1211222137_Wanted-Trash_VS_RaidenThePro.rda (with version prefix)
+    // 2. 1211222137_Wanted-Trash_VS_RaidenThePro.rda (without version prefix)
+    // Where: [gameVersion_]yyMMddHHmm_Player1_VS_Player2.rda
+
+    const replayFile: ReplayFile = {
+      filename,
+      fullPath,
+      isValidFormat: false,
+    };
+
+    try {
+      // Remove .rda extension
+      const nameWithoutExt = filename.replace(/\.rda$/i, "");
+
+      // Split by underscores
+      const parts = nameWithoutExt.split("_");
+
+      if (parts.length >= 3) {
+        // Try to find the date part (yyMMddHHmm format)
+        let datePartIndex = -1;
+        let datePart = "";
+
+        // Check each part to see if it matches the date format
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i].length === 10 && /^\d{10}$/.test(parts[i])) {
+            // This looks like a date part (10 digits)
+            datePartIndex = i;
+            datePart = parts[i];
+            break;
+          }
+        }
+
+        if (datePartIndex >= 0 && datePart.length === 10) {
+          // Parse date: yyMMddHHmm
+          const year = 2000 + parseInt(datePart.substring(0, 2));
+          const month = parseInt(datePart.substring(2, 4)) - 1; // Month is 0-indexed
+          const day = parseInt(datePart.substring(4, 6));
+          const hour = parseInt(datePart.substring(6, 8));
+          const minute = parseInt(datePart.substring(8, 10));
+
+          const date = new Date(year, month, day, hour, minute);
+
+          // Check if date is valid and reasonable (not in future)
+          const now = new Date();
+
+          if (!isNaN(date.getTime()) && date <= now) {
+            replayFile.date = date;
+
+            // Extract player names from parts after the date
+            if (datePartIndex + 1 < parts.length) {
+              const playersPart = parts.slice(datePartIndex + 1).join("_");
+              const playerMatch = playersPart.match(/^(.+)_VS_(.+)$/);
+
+              if (playerMatch) {
+                replayFile.player1 = playerMatch[1].replace(/-/g, " ");
+                replayFile.player2 = playerMatch[2].replace(/-/g, " ");
+                replayFile.isValidFormat = true;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // If parsing fails, isValidFormat remains false
+      log.warn(`Failed to parse replay filename ${filename}:`, error);
+    }
+
+    return replayFile;
+  }
+
+  private async startJavaProcess(options: JavaProcessOptions): Promise<void> {
+    const { mainClass, settings, extraArgs = [] } = options;
+
     const gameDir = join(this.gameClientPath, "game");
     const libDir = join(this.gameClientPath, "lib");
     const jreDir = join(this.gameClientPath, "jre");
@@ -522,13 +646,11 @@ export class GameClientModule implements AppModule {
 
     // Ensure Java executable has proper permissions
     await this.ensureExecutablePermissions(javaExecutable);
-
-    // Also ensure other JRE executables have proper permissions
     await this.ensureJrePermissions(jreDir);
 
     // Calculate RAM allocation (default to 2GB if not specified)
     const ramAllocation = settings?.gameRamAllocation || 2;
-    const maxHeap = `${ramAllocation * 1024}m`; // Convert GB to MB (1024MB per GB allocated)
+    const maxHeap = `${ramAllocation * 1024}m`; // Convert GB to MB
     const minHeap = Math.min(512, ramAllocation * 512) + "m"; // Proportional min heap
 
     // Base Java arguments
@@ -551,34 +673,30 @@ export class GameClientModule implements AppModule {
 
     // Add developer mode extra arguments if provided
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
-      const extraArgs = settings.devExtraJavaArgs
+      const extraDevArgs = settings.devExtraJavaArgs
         .split(" ")
         .map((arg: string) => arg.trim())
         .filter((arg: string) => arg.length > 0);
-      javaArgs.push(...extraArgs);
+      javaArgs.push(...extraDevArgs);
     }
 
-    // Add classpath and main class
-    javaArgs.push(
-      "-cp",
-      fullClasspath,
-      "com.ankamagames.dofusarena.client.DofusArenaClient"
-    );
+    // Add classpath, main class, and any extra arguments
+    javaArgs.push("-cp", fullClasspath, mainClass, ...extraArgs);
 
     // Use platform-specific launch approach
     switch (process.platform) {
       case "win32":
-        await this.launchGameWindows(javaExecutable, javaArgs, gameDir);
+        await this.launchJavaProcessWindows(javaExecutable, javaArgs, gameDir);
         break;
       case "linux":
-        await this.launchGameLinux(javaExecutable, javaArgs, gameDir);
+        await this.launchJavaProcessLinux(javaExecutable, javaArgs, gameDir);
         break;
       default:
         throw new Error(`Unsupported platform: ${process.platform}`);
     }
   }
 
-  private async launchGameWindows(
+  private async launchJavaProcessWindows(
     javaExecutable: string,
     args: string[],
     cwd: string
@@ -586,28 +704,28 @@ export class GameClientModule implements AppModule {
     return new Promise((resolve, reject) => {
       const javaCommand = `"${javaExecutable}" ${args.join(" ")}`;
 
-      // Launch the game process and immediately resolve (don't wait for game to exit)
+      // Launch the Java process and immediately resolve (don't wait for process to exit)
       const childProcess = exec(javaCommand, { cwd }, (error) => {
         // Only log errors, don't reject on process exit
         if (error && !error.killed) {
-          log.error("Game process error:", error);
+          log.error("Java process error:", error);
         }
       });
 
       // Check if process started successfully
       if (childProcess.pid) {
         log.info(
-          "Game process started successfully with PID:",
+          "Java process started successfully with PID:",
           childProcess.pid
         );
         resolve(); // Resolve immediately after successful start
       } else {
-        reject(new Error("Failed to start game process"));
+        reject(new Error("Failed to start Java process"));
       }
     });
   }
 
-  private async launchGameLinux(
+  private async launchJavaProcessLinux(
     javaExecutable: string,
     args: string[],
     cwd: string
@@ -625,23 +743,23 @@ export class GameClientModule implements AppModule {
 
       const javaCommand = `"${javaExecutable}" ${args.join(" ")}`;
 
-      // Launch the game process and immediately resolve (don't wait for game to exit)
+      // Launch the Java process and immediately resolve (don't wait for process to exit)
       const childProcess = exec(javaCommand, { cwd }, (error) => {
         // Only log errors, don't reject on process exit
         if (error && !error.killed) {
-          log.error("Game process error:", error);
+          log.error("Java process error:", error);
         }
       });
 
       // Check if process started successfully
       if (childProcess.pid) {
         log.info(
-          "Game process started successfully with PID:",
+          "Java process started successfully with PID:",
           childProcess.pid
         );
         resolve(); // Resolve immediately after successful start
       } else {
-        reject(new Error("Failed to start game process"));
+        reject(new Error("Failed to start Java process"));
       }
     });
   }
