@@ -1,0 +1,78 @@
+name: Compile
+
+on:
+  workflow_call:
+    inputs:
+      app-version:
+        required: true
+        type: string
+      distribution-channel:
+        required: true
+        type: string
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: "bash"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  NODE_NO_WARNINGS: 1
+  npm_config_audit: false
+  npm_config_fund: false
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck --if-present
+
+  compile:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23"
+          cache: "npm"
+      - run: npm ci
+
+      - run: npm version "${{inputs.app-version}}" --no-git-tag-version
+        if: inputs.upload-artifacts
+      - run: npm run compile -- -p never
+        env:
+          VITE_DISTRIBUTION_CHANNEL: ${{inputs.distribution-channel}}
+
+      - uses: actions/attest-build-provenance@v2
+        if: inputs.upload-artifacts
+        with:
+          subject-path: ${{ matrix.os == 'windows-latest' && 'dist/nsis-web/ArenaReturnsLauncher*, dist/nsis-web/latest*.yml, dist/nsis-web/arena-returns-launcher*' || 'dist/ArenaReturnsLauncher*, dist/latest*.yml' }}
+
+      - name: Upload compiled app
+        if: inputs.upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{inputs.distribution-channel}}
+          path: |
+            dist
+            !dist/win-unpacked
+            !dist/linux-unpacked

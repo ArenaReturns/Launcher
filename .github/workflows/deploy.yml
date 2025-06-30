@@ -1,0 +1,60 @@
+# Manual deployment workflow
+# This workflow is manually triggered and does a full build and deployment
+name: Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      distribution-channel:
+        description: Distribution channel for release. It can be `stable`, `beta`, `alpha` or any string.
+        type: string
+        required: true
+
+concurrency:
+  group: ${{github.workflow}}-${{ github.ref }}-${{inputs.distribution-channel}}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  prepare:
+    name: Prepare shared data for multi-platform compilation
+    runs-on: ubuntu-latest
+    outputs:
+      APP_VERSION: ${{ steps.APP_VERSION.outputs.APP_VERSION }}
+      APP_FULL_VERSION: ${{ steps.APP_FULL_VERSION.outputs.APP_FULL_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: APP_VERSION
+        run: echo "APP_VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+      - id: APP_FULL_VERSION
+        run: echo "APP_FULL_VERSION=${{ steps.APP_VERSION.outputs.APP_VERSION }}-${{inputs.distribution-channel}}" >> $GITHUB_OUTPUT
+      - run: |
+          echo "- \`APP_VERSION\`: ${{ steps.APP_VERSION.outputs.APP_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- \`APP_FULL_VERSION\`: ${{ steps.APP_FULL_VERSION.outputs.APP_FULL_VERSION }}" >> $GITHUB_STEP_SUMMARY
+
+  compile:
+    needs:
+      - prepare
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/compile.yml
+    with:
+      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
+      distribution-channel: ${{inputs.distribution-channel}}
+      upload-artifacts: true
+
+  release:
+    permissions:
+      contents: write
+    needs:
+      - prepare
+      - compile
+    uses: ./.github/workflows/release.yml
+    with:
+      distribution-channel: ${{ inputs.distribution-channel }}
+      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}

@@ -1,0 +1,35 @@
+{
+  "name": "arena-returns-launcher",
+  "description": "Le launcher officiel d'Arena Returns - Dofus Arena",
+  "version": "3.0.8",
+  "private": true,
+  "type": "module",
+  "author": {
+    "email": "contact@arenareturns.com",
+    "name": "Arena Returns",
+    "url": "https://www.arenareturns.com"
+  },
+  "main": "packages/entry-point.mjs",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=23.0.0"
+  },
+  "scripts": {
+    "build": "npm run build -ws --if-present",
+    "compile": "npm run build && electron-builder build --config electron-builder.mjs",
+    "start": "node packages/dev-mode.js",
+    "typecheck": "npm run typecheck -ws --if-present"
+  },
+  "devDependencies": {
+    "@npmcli/map-workspaces": "4.0.2",
+    "@types/node": "22.15.31",
+    "electron": "36.4.0",
+    "electron-builder": "26.0.12",
+    "glob": "11.0.3"
+  },
+  "dependencies": {
+    "@app/main": "*"
+  }
+}
