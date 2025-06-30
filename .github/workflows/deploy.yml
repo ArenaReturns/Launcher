@@ -2,6 +2,9 @@
 # This workflow is manually triggered and does a full build and deployment
 name: Deploy
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       distribution-channel:
