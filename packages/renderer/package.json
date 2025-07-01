@@ -70,7 +70,7 @@
     "globals": "16.2.0",
     "tw-animate-css": "^1.2.9",
     "typescript": "5.8.3",
-    "typescript-eslint": "8.34.0",
+    "typescript-eslint": "8.35.1",
     "vite": "6.3.5"
   },
   "main": "./dist/index.html",
