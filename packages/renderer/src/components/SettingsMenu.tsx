@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { SimpleSlider, SimpleSelect } from "./common/FormControls";
 import type { SettingsState } from "@/types";
-import { gameClient, system, ipcEvents } from "@/lib/electronAPI";
+import { gameClient, system, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 
 interface SettingsMenuProps {

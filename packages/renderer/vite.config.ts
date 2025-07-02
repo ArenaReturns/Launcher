@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@app/preload": path.resolve(__dirname, "../preload"),
     },
   },
 });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Download, Play, Pause, AlertCircle, RotateCw } from "lucide-react";
-import { gameClient, ipcEvents } from "@/lib/electronAPI";
+import { gameClient, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 
 interface DownloadButtonProps {

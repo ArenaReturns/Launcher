@@ -1,12 +1,5 @@
 /// <reference types="vite/client" />
 
-interface WindowControls {
-  minimize: () => Promise<void>;
-  maximize: () => Promise<void>;
-  close: () => Promise<void>;
-  isMaximized: () => Promise<boolean>;
-}
-
 interface GameStatus {
   isInstalled: boolean;
   needsUpdate: boolean;
@@ -39,21 +32,6 @@ interface ReplayFile {
   player1?: string;
   player2?: string;
   isValidFormat: boolean;
-}
-
-interface GameClient {
-  getStatus: () => Promise<GameStatus>;
-  checkForUpdates: () => Promise<GameStatus>;
-  startDownload: () => Promise<void>;
-  getDownloadProgress: () => Promise<DownloadProgress>;
-  cancelDownload: () => Promise<void>;
-  launchGame: (settings?: GameSettings) => Promise<void>;
-  launchReplay: (replayPath: string, settings?: GameSettings) => Promise<void>;
-  repairClient: () => Promise<void>;
-  openGameDirectory: () => Promise<void>;
-  openReplaysFolder: () => Promise<void>;
-  listReplays: () => Promise<ReplayFile[]>;
-  updateSettings: (settings: GameSettings) => Promise<void>;
 }
 
 interface NewsArticle {
@@ -149,11 +127,6 @@ interface NewsState {
   lastFetch?: number;
 }
 
-interface News {
-  getArticles: () => Promise<NewsState>;
-  refreshArticles: () => Promise<NewsState>;
-}
-
 interface UpdateProgress {
   bytesPerSecond: number;
   percent: number;
@@ -170,29 +143,7 @@ interface UpdateStatus {
   version?: string;
 }
 
-interface Updater {
-  getStatus: () => Promise<UpdateStatus>;
-  checkForUpdates: () => Promise<boolean>;
-  downloadUpdate: () => Promise<void>;
-  installUpdate: () => Promise<void>;
-}
-
 interface PreloaderInitResult {
   gameStatus: GameStatus;
   updateStatus: UpdateStatus;
-}
-
-interface PreloaderAPI {
-  initializeApp: () => Promise<PreloaderInitResult>;
-}
-
-declare global {
-  interface Window {
-    [key: string]: unknown; // For the base64 encoded exports from preload
-    // We'll access these via the base64 encoded keys, but these interfaces help with typing
-    electronAPI?: {
-      openGameDirectory?: () => Promise<void>;
-      openReplaysFolder?: () => Promise<void>;
-    };
-  }
 }

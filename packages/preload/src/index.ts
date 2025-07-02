@@ -12,7 +12,7 @@ function send(channel: string, message: string) {
 // IPC event listener functions
 const ipcEvents = {
   on: (channel: string, listener: (...args: unknown[]) => void) => {
-    ipcRenderer.on(channel, (event, ...args) => listener(...args));
+    ipcRenderer.on(channel, (_event, ...args) => listener(...args));
   },
   off: (channel: string, listener: (...args: unknown[]) => void) => {
     ipcRenderer.off(channel, listener);

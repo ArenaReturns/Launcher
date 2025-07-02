@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import { TitleBar } from "./TitleBar";
-import { preloader, updater, ipcEvents } from "@/lib/electronAPI";
+import { preloader, updater, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 import logoImage from "@/assets/logo.webp";

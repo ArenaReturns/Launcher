@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { gameClient, ipcEvents } from "@/lib/electronAPI";
+import { gameClient, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 
 interface ReplaysTabProps {

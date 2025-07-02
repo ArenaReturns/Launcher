@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Globe, MessageCircle } from "lucide-react";
 import { DownloadButton } from "./DownloadButton";
-import { news, gameClient, ipcEvents, system } from "@/lib/electronAPI";
+import { news, gameClient, ipcEvents, system } from "@app/preload";
 import log from "@/utils/logger";
 import logoImage from "@/assets/logo.webp";
 
