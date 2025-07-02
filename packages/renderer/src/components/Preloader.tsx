@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { StatusCard } from "@/components/ui/status-card";
 import { TitleBar } from "./TitleBar";
 import { preloader, updater, ipcEvents } from "@/lib/electronAPI";
 import log from "@/utils/logger";
@@ -308,8 +309,8 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
               <p className="text-white/60 text-base">{Math.round(progress)}%</p>
 
               {error && (
-                <div className="mt-4 p-3 bg-red-600/20 border border-red-500/30 rounded-lg space-y-3">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <StatusCard variant="error" className="mt-4">
+                  <p className="text-sm mb-3">{error}</p>
                   {canContinue && (
                     <Button
                       onClick={handleContinueAnyway}
@@ -320,7 +321,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
                       Continuer quand même
                     </Button>
                   )}
-                </div>
+                </StatusCard>
               )}
             </div>
           </div>
