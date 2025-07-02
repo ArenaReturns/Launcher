@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusCard } from "@/components/ui/status-card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Video,
   RefreshCw,
@@ -8,7 +10,6 @@ import {
   Calendar,
   Users,
   FolderOpen,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -286,34 +287,25 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
 
         {/* Game Status Warning */}
         {shouldShowWarning() && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
-              <div>
-                <p className="text-yellow-500 font-medium">
-                  Impossible de lancer des replays
-                </p>
-                <p className="text-yellow-500/80 text-sm">
-                  {!gameStatus?.isInstalled
-                    ? "Le jeu n'est pas installé"
-                    : gameStatus?.needsUpdate
-                    ? "Une mise à jour du jeu est requise"
-                    : isDownloading
-                    ? "Téléchargement en cours"
-                    : "Veuillez vérifier l'état du jeu"}
-                </p>
-              </div>
-            </div>
-          </div>
+          <StatusCard
+            variant="warning"
+            title="Impossible de lancer des replays"
+            description={
+              !gameStatus?.isInstalled
+                ? "Le jeu n'est pas installé"
+                : gameStatus?.needsUpdate
+                ? "Une mise à jour du jeu est requise"
+                : isDownloading
+                ? "Téléchargement en cours"
+                : "Veuillez vérifier l'état du jeu"
+            }
+          />
         )}
 
         {/* Loading State */}
         {isLoading && (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-white/50">
-              <RefreshCw className="h-16 w-16 mx-auto mb-4 animate-spin" />
-              <h3 className="text-xl font-bold">Chargement des replays...</h3>
-            </div>
+            <LoadingSpinner size="xxl" text="Chargement des replays..." />
           </div>
         )}
 
