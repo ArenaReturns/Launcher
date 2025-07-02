@@ -24,8 +24,8 @@
   },
   "devDependencies": {
     "@npmcli/map-workspaces": "4.0.2",
-    "@types/node": "22.15.31",
-    "electron": "36.4.0",
+    "@types/node": "24.0.10",
+    "electron": "37.2.0",
     "electron-builder": "26.0.12",
     "glob": "11.0.3"
   },
