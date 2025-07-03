@@ -63,10 +63,10 @@ const news = {
 
 // Auto updater functions
 const updater = {
-  getStatus: () => ipcRenderer.invoke("updater:getStatus"),
-  checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),
-  downloadUpdate: () => ipcRenderer.invoke("updater:downloadUpdate"),
-  installUpdate: () => ipcRenderer.invoke("updater:installUpdate"),
+  getStatus: () => ipcRenderer.invoke("launcherUpdater:getStatus"),
+  checkForUpdates: () => ipcRenderer.invoke("launcherUpdater:checkForUpdates"),
+  downloadUpdate: () => ipcRenderer.invoke("launcherUpdater:downloadUpdate"),
+  installUpdate: () => ipcRenderer.invoke("launcherUpdater:installUpdate"),
 };
 
 // Preloader functions for initialization

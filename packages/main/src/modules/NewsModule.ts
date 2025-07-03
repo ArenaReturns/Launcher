@@ -3,11 +3,6 @@ import { ModuleContext } from "../ModuleContext.js";
 import { ipcMain, BrowserWindow, app } from "electron";
 import log from "electron-log";
 
-// Get app version from Electron's app metadata (works in both dev and packaged)
-function getAppVersion(): string {
-  return app.getVersion();
-}
-
 export interface NewsArticle {
   id: number;
   documentId: string;
@@ -135,7 +130,7 @@ export class NewsModule implements AppModule {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": `ArenaReturnsLauncher/${getAppVersion()}`,
+          "User-Agent": `ArenaReturnsLauncher/${app.getVersion()}`,
         },
       });
 

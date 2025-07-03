@@ -48,12 +48,15 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
       shouldStopRef.current = true; // Stop initialization
     };
 
-    ipcEvents.on("updater:download-progress", handleDownloadProgress);
-    ipcEvents.on("updater:update-error", handleUpdateError);
+    ipcEvents.on("launcherUpdater:download-progress", handleDownloadProgress);
+    ipcEvents.on("launcherUpdater:update-error", handleUpdateError);
 
     return () => {
-      ipcEvents.off("updater:download-progress", handleDownloadProgress);
-      ipcEvents.off("updater:update-error", handleUpdateError);
+      ipcEvents.off(
+        "launcherUpdater:download-progress",
+        handleDownloadProgress
+      );
+      ipcEvents.off("launcherUpdater:update-error", handleUpdateError);
     };
   }, []);
 
