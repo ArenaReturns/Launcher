@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { SettingsState } from "@/types";
-import { gameClient } from "@app/preload";
+import { gameClient, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 
@@ -23,12 +23,16 @@ interface MainLauncherProps {
 }
 
 export const MainLauncher: React.FC<MainLauncherProps> = ({
-  gameStatus,
+  gameStatus: initialGameStatus,
   updateStatus,
 }) => {
   const [activeTab, setActiveTab] = useState("game");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showDevModeDialog, setShowDevModeDialog] = useState(false);
+  // Local state for gameStatus to handle updates after tab switches
+  const [gameStatus, setGameStatus] = useState<GameStatus | undefined>(
+    initialGameStatus
+  );
   const [settings, setSettings] = useState<SettingsState>({
     gameRamAllocation: 2,
     devModeEnabled: false,
@@ -40,6 +44,32 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
   // Konami code state
   const [konamiSequence, setKonamiSequence] = useState<string>("");
   const targetSequence = "devmode";
+
+  // Update local gameStatus when initialGameStatus changes
+  useEffect(() => {
+    setGameStatus(initialGameStatus);
+  }, [initialGameStatus]);
+
+  // Listen for download completion events to update game status
+  useEffect(() => {
+    const handleDownloadComplete = async () => {
+      try {
+        // Refresh game status after download completes
+        const updatedStatus = await gameClient.checkForUpdates();
+        setGameStatus(updatedStatus);
+      } catch (error) {
+        log.error("Failed to refresh game status after download:", error);
+      }
+    };
+
+    // Register event listener
+    ipcEvents.on("game:download-complete", handleDownloadComplete);
+
+    // Cleanup event listener on unmount
+    return () => {
+      ipcEvents.off("game:download-complete", handleDownloadComplete);
+    };
+  }, []);
 
   // Load settings from localStorage on mount
   useEffect(() => {
