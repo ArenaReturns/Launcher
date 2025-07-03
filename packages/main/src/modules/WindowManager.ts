@@ -48,49 +48,6 @@ class WindowManager implements AppModule {
         window.close();
       }
     });
-
-    // Handle external URL opening
-    ipcMain.handle("system:openExternal", async (event, url: string) => {
-      // Validate URL before opening
-      if (!isUrlAllowed(url)) {
-        const error = `URL not allowed: ${url}`;
-        log.warn(error);
-        throw new Error(error);
-      }
-
-      try {
-        await shell.openExternal(url);
-      } catch (error) {
-        log.error("Failed to open external URL:", error);
-        throw new Error(`Failed to open external URL: ${url}`);
-      }
-    });
-
-    // Handle app version requests
-    ipcMain.handle("system:getAppVersion", () => {
-      return app.getVersion();
-    });
-
-    // Handle log directory requests
-    ipcMain.handle("system:getLogDirectory", () => {
-      return join(app.getPath("userData"), "logs");
-    });
-
-    // Handle opening log directory
-    ipcMain.handle("system:openLogDirectory", async () => {
-      const logDirectory = join(app.getPath("userData"), "logs");
-
-      try {
-        await shell.openPath(logDirectory);
-      } catch (error) {
-        log.error("Failed to open log directory:", error);
-        throw new Error(
-          `Failed to open log directory: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
-        );
-      }
-    });
   }
 
   async createWindow(): Promise<BrowserWindow> {

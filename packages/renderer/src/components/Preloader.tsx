@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import { TitleBar } from "./TitleBar";
-import { preloader, updater, ipcEvents } from "@app/preload";
+import { preloader, launcherUpdater, ipcEvents } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 import logoImage from "@/assets/logo.webp";
@@ -71,10 +71,10 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
         setCurrentMessage("Vérification des mises à jour du launcher...");
         setProgress(20);
 
-        let currentUpdateStatus = await updater.getStatus();
+        let currentUpdateStatus = await launcherUpdater.getStatus();
         log.info("Preloader: Initial update status:", currentUpdateStatus);
 
-        const hasUpdate = await updater.checkForUpdates();
+        const hasUpdate = await launcherUpdater.checkForUpdates();
         log.info("Preloader: Update check result:", { hasUpdate });
 
         if (hasUpdate) {
@@ -82,7 +82,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
           setCurrentMessage("Téléchargement de la mise à jour...");
           setProgress(25);
 
-          await updater.downloadUpdate();
+          await launcherUpdater.downloadUpdate();
 
           // BLOCKING: Wait for download to complete by polling status
           log.info("Preloader: Waiting for update download to complete");
@@ -90,7 +90,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
 
           while (!downloadComplete) {
             await new Promise((resolve) => setTimeout(resolve, 500));
-            currentUpdateStatus = await updater.getStatus();
+            currentUpdateStatus = await launcherUpdater.getStatus();
 
             if (currentUpdateStatus.downloaded) {
               downloadComplete = true;
@@ -117,8 +117,8 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
             );
 
             try {
-              log.info("Preloader: Calling updater.installUpdate()");
-              await updater.installUpdate();
+              log.info("Preloader: Calling launcherUpdater.installUpdate()");
+              await launcherUpdater.installUpdate();
 
               // This should quit and restart - code after this won't execute
               log.info("Preloader: Install called, app should restart");

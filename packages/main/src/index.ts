@@ -10,6 +10,7 @@ import { allowInternalOrigins } from "./modules/BlockNotAllowedOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { createGameClientModule } from "./modules/GameClientModule.js";
 import { createNewsModule } from "./modules/NewsModule.js";
+import { systemIpcModule } from "./modules/SystemIPCModule.js";
 import { ALLOWED_EXTERNAL_ORIGINS } from "./config/allowedUrls.js";
 
 export async function initApp(initConfig: AppInitConfig) {
@@ -29,6 +30,7 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(launcherUpdater())
     .init(createGameClientModule())
     .init(createNewsModule())
+    .init(systemIpcModule())
 
     // Security
     .init(

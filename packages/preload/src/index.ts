@@ -61,8 +61,8 @@ const news = {
   refreshArticles: () => ipcRenderer.invoke("news:refreshArticles"),
 };
 
-// Auto updater functions
-const updater = {
+// Launcher updater functions
+const launcherUpdater = {
   getStatus: () => ipcRenderer.invoke("launcherUpdater:getStatus"),
   checkForUpdates: () => ipcRenderer.invoke("launcherUpdater:checkForUpdates"),
   downloadUpdate: () => ipcRenderer.invoke("launcherUpdater:downloadUpdate"),
@@ -75,16 +75,16 @@ const preloader = {
     // Check game status
     const gameStatus = await gameClient.getStatus();
 
-    // Check for app updates
-    const updateStatus = await updater.getStatus();
-    await updater.checkForUpdates();
+    // Check for launcher updates
+    const launcherUpdateStatus = await launcherUpdater.getStatus();
+    await launcherUpdater.checkForUpdates();
 
     // Preload news (non-blocking)
     news.getArticles().catch(() => {}); // Silently fail
 
     return {
       gameStatus,
-      updateStatus,
+      launcherUpdateStatus,
     };
   },
 };
@@ -98,6 +98,6 @@ export {
   system,
   gameClient,
   news,
-  updater,
+  launcherUpdater,
   preloader,
 };
