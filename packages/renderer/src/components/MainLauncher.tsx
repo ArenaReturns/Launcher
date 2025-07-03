@@ -13,19 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { SettingsState } from "@/types";
-import { gameClient } from "@/lib/electronAPI";
+import { gameClient } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 
 interface MainLauncherProps {
-  gameStatus?: GameStatus;
   updateStatus?: UpdateStatus;
 }
 
-export const MainLauncher: React.FC<MainLauncherProps> = ({
-  gameStatus,
-  updateStatus,
-}) => {
+export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
   const [activeTab, setActiveTab] = useState("game");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showDevModeDialog, setShowDevModeDialog] = useState(false);
@@ -43,7 +39,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
 
   // Load settings from localStorage on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("arenaReturnsSettings");
+    const savedSettings = localStorage.getItem("launcherSettings");
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
@@ -56,7 +52,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
 
   // Save settings to localStorage and update backend when changed
   useEffect(() => {
-    localStorage.setItem("arenaReturnsSettings", JSON.stringify(settings));
+    localStorage.setItem("launcherSettings", JSON.stringify(settings));
 
     // Update the backend with current settings
     gameClient
@@ -111,10 +107,8 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
 
         {/* Main Content */}
         <div className="flex-1 px-6 pb-6 overflow-hidden">
-          {activeTab === "game" && (
-            <GameTab gameStatus={gameStatus} updateStatus={updateStatus} />
-          )}
-          {activeTab === "replays" && <ReplaysTab gameStatus={gameStatus} />}
+          {activeTab === "game" && <GameTab updateStatus={updateStatus} />}
+          {activeTab === "replays" && <ReplaysTab />}
           {activeTab === "twitch" && <TwitchTab />}
         </div>
 

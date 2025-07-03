@@ -36,6 +36,9 @@ export function setupLogger() {
     "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
   log.transports.console.format = "[{h}:{i}:{s}.{ms}] [{level}] {text}";
 
+  // Initialize renderer logging
+  log.initialize();
+
   // Log startup info
   log.info("=== Launcher Started ===");
   log.info("App Version:", app.getVersion());

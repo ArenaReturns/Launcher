@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { Settings, Minus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { X, Minus, Settings } from "lucide-react";
+import { windowControls } from "@app/preload";
 
 interface TitleBarProps {
   title?: string;
@@ -8,38 +9,17 @@ interface TitleBarProps {
   onSettingsClick?: () => void;
 }
 
-interface WindowControlsAPI {
-  minimize: () => Promise<void>;
-  close: () => Promise<void>;
-}
-
 export const TitleBar: React.FC<TitleBarProps> = ({
   title = "Arena Returns Launcher",
   className = "",
   onSettingsClick,
 }) => {
-  const [windowControls, setWindowControls] =
-    useState<WindowControlsAPI | null>(null);
-
-  useEffect(() => {
-    // Get window controls from the preload script
-    const controlsKey = btoa("windowControls");
-    const controls = (window as unknown as Record<string, unknown>)[
-      controlsKey
-    ] as WindowControlsAPI;
-    setWindowControls(controls);
-  }, []);
-
   const handleMinimize = () => {
-    if (windowControls) {
-      windowControls.minimize();
-    }
+    windowControls.minimize();
   };
 
   const handleClose = () => {
-    if (windowControls) {
-      windowControls.close();
-    }
+    windowControls.close();
   };
 
   return (
@@ -54,38 +34,40 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         </span>
       </div>
 
-      {/* Window Controls */}
-      <div
-        className="flex items-center"
-        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-      >
+      {/* Settings Button */}
+      <div className="flex items-center">
         {onSettingsClick && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onSettingsClick}
-            className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 rounded-none"
+            className="h-6 w-6 p-0 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
-            <Settings className="h-4 w-4" />
+            <Settings className="h-3 w-3" />
           </Button>
         )}
+      </div>
 
+      {/* Window Controls */}
+      <div className="flex items-center">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleMinimize}
-          className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 rounded-none"
+          className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10 transition-colors rounded-none"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <Minus className="h-4 w-4" />
+          <Minus className="h-3 w-3" />
         </Button>
-
         <Button
           variant="ghost"
           size="sm"
           onClick={handleClose}
-          className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-red-500/50 transition-all duration-200 rounded-none"
+          className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-red-500/80 transition-colors rounded-none"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <X className="h-4 w-4" />
+          <X className="h-3 w-3" />
         </Button>
       </div>
     </div>

@@ -3,79 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Globe, MessageCircle } from "lucide-react";
 import { DownloadButton } from "./DownloadButton";
-import { news, gameClient, ipcEvents, system } from "@/lib/electronAPI";
+import { news, ipcEvents, system } from "@app/preload";
 import log from "@/utils/logger";
 import logoImage from "@/assets/logo.webp";
+import { useGameStateContext } from "@/contexts/GameStateContext";
 
 interface GameTabProps {
-  gameStatus?: GameStatus;
   updateStatus?: UpdateStatus;
 }
 
-export const GameTab: React.FC<GameTabProps> = ({
-  gameStatus: initialGameStatus,
-  updateStatus,
-}) => {
-  const [gameStatus, setGameStatus] = useState<GameStatus | undefined>(
-    initialGameStatus
-  );
+export const GameTab: React.FC<GameTabProps> = ({ updateStatus }) => {
+  const { gameState } = useGameStateContext();
   const [isDownloading, setIsDownloading] = useState(false);
   const [newsState, setNewsState] = useState<NewsState>({
     articles: [],
     isLoading: true,
   });
-
-  useEffect(() => {
-    // Update gameStatus when initialGameStatus changes
-    setGameStatus(initialGameStatus);
-  }, [initialGameStatus]);
-
-  useEffect(() => {
-    // Fetch initial download state immediately to sync with current state
-    const fetchInitialDownloadState = async () => {
-      try {
-        const downloadProgress = await gameClient.getDownloadProgress();
-        setIsDownloading(downloadProgress.isDownloading);
-
-        // Only refresh game status if not downloading and we need to
-        if (!downloadProgress.isDownloading) {
-          const shouldRefreshStatus =
-            !initialGameStatus ||
-            (!initialGameStatus.isInstalled &&
-              !initialGameStatus.needsUpdate &&
-              !initialGameStatus.error);
-
-          if (shouldRefreshStatus) {
-            const currentStatus = await gameClient.getStatus();
-            setGameStatus(currentStatus);
-          }
-        }
-      } catch (error) {
-        log.error("Failed to fetch initial download state:", error);
-
-        // Only try to fetch game status if we failed to get download progress
-        if (
-          !initialGameStatus ||
-          (!initialGameStatus.isInstalled &&
-            !initialGameStatus.needsUpdate &&
-            !initialGameStatus.error)
-        ) {
-          try {
-            const currentStatus = await gameClient.getStatus();
-            setGameStatus(currentStatus);
-          } catch (statusError) {
-            log.error("Failed to fetch current game status:", statusError);
-            // Fall back to initialGameStatus if both fetches fail
-            if (initialGameStatus) {
-              setGameStatus(initialGameStatus);
-            }
-          }
-        }
-      }
-    };
-
-    fetchInitialDownloadState();
-  }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
     // Load news articles
@@ -123,32 +66,22 @@ export const GameTab: React.FC<GameTabProps> = ({
 
     // Add event listeners
     ipcEvents.on("news:news-updated", handleNewsUpdate);
-    ipcEvents.on("game:download-started", handleDownloadStarted);
-    ipcEvents.on("game:download-progress", handleDownloadProgress);
-    ipcEvents.on("game:download-complete", handleDownloadComplete);
-    ipcEvents.on("game:download-cancelled", handleDownloadCancelled);
-    ipcEvents.on("game:download-error", handleDownloadError);
+    ipcEvents.on("gameUpdater:download-started", handleDownloadStarted);
+    ipcEvents.on("gameUpdater:download-progress", handleDownloadProgress);
+    ipcEvents.on("gameUpdater:download-complete", handleDownloadComplete);
+    ipcEvents.on("gameUpdater:download-cancelled", handleDownloadCancelled);
+    ipcEvents.on("gameUpdater:download-error", handleDownloadError);
 
     // Cleanup event listeners on unmount
     return () => {
       ipcEvents.off("news:news-updated", handleNewsUpdate);
-      ipcEvents.off("game:download-started", handleDownloadStarted);
-      ipcEvents.off("game:download-progress", handleDownloadProgress);
-      ipcEvents.off("game:download-complete", handleDownloadComplete);
-      ipcEvents.off("game:download-cancelled", handleDownloadCancelled);
-      ipcEvents.off("game:download-error", handleDownloadError);
+      ipcEvents.off("gameUpdater:download-started", handleDownloadStarted);
+      ipcEvents.off("gameUpdater:download-progress", handleDownloadProgress);
+      ipcEvents.off("gameUpdater:download-complete", handleDownloadComplete);
+      ipcEvents.off("gameUpdater:download-cancelled", handleDownloadCancelled);
+      ipcEvents.off("gameUpdater:download-error", handleDownloadError);
     };
   }, []);
-
-  const handleDownloadComplete = async () => {
-    try {
-      // Refresh game status after download completes
-      const updatedStatus = await gameClient.checkForUpdates();
-      setGameStatus(updatedStatus);
-    } catch (error) {
-      log.error("Failed to refresh game status:", error);
-    }
-  };
 
   const handleDownloadStateChange = (downloading: boolean) => {
     setIsDownloading(downloading);
@@ -207,14 +140,12 @@ export const GameTab: React.FC<GameTabProps> = ({
               {/* Hide version text during downloads to save space */}
               {!isDownloading && (
                 <p className="text-base text-white/60">
-                  {gameStatus?.remoteVersion
-                    ? `Dernière version du client : ${gameStatus.remoteVersion}`
+                  {gameState.remoteVersion
+                    ? `Dernière version du client : ${gameState.remoteVersion}`
                     : "Vérification de la version..."}
                 </p>
               )}
               <DownloadButton
-                gameStatus={gameStatus}
-                onDownloadComplete={handleDownloadComplete}
                 onDownloadStateChange={handleDownloadStateChange}
               />
               {updateStatus?.available && !isDownloading && (

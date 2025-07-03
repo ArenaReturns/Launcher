@@ -27,7 +27,7 @@ export interface UpdateStatus {
   version?: string;
 }
 
-export class AutoUpdater implements AppModule {
+export class LauncherUpdater implements AppModule {
   readonly #notification: DownloadNotification;
   private updateStatus: UpdateStatus;
   private lastCheckTime: number = 0;
@@ -47,20 +47,24 @@ export class AutoUpdater implements AppModule {
   }
 
   async enable(context: ModuleContext): Promise<void> {
-    log.info("AutoUpdater: Initializing auto-updater module");
+    log.info("LauncherUpdater: Initializing auto-updater module");
 
     // Register IPC handlers
-    ipcMain.handle("updater:getStatus", () => this.getUpdateStatus());
-    ipcMain.handle("updater:checkForUpdates", () => this.checkForUpdates());
-    ipcMain.handle("updater:downloadUpdate", () => this.downloadUpdate());
-    ipcMain.handle("updater:installUpdate", () =>
+    ipcMain.handle("launcherUpdater:getStatus", () => this.getUpdateStatus());
+    ipcMain.handle("launcherUpdater:checkForUpdates", () =>
+      this.checkForUpdates()
+    );
+    ipcMain.handle("launcherUpdater:downloadUpdate", () =>
+      this.downloadUpdate()
+    );
+    ipcMain.handle("launcherUpdater:installUpdate", () =>
       this.installUpdateWithConfirmation()
     );
 
     // Setup event listeners
     this.setupEventListeners();
 
-    log.info("AutoUpdater: Module initialized successfully");
+    log.info("LauncherUpdater: Module initialized successfully");
   }
 
   getAutoUpdater(): AppUpdater {
@@ -72,19 +76,19 @@ export class AutoUpdater implements AppModule {
 
   private setupEventListeners(): void {
     const updater = this.getAutoUpdater();
-    log.info("AutoUpdater: Setting up event listeners");
+    log.info("LauncherUpdater: Setting up event listeners");
 
     // Configure electron-updater to use our electron-log instance
     updater.logger = log;
     // Configure transport level on our log instance (same object)
     log.transports.file.level = "info";
-    log.info("AutoUpdater: Configured electron-updater logging");
+    log.info("LauncherUpdater: Configured electron-updater logging");
 
-    // Force dev update config for debugging
+    // DEBUG: Force dev update config for debugging
     // updater.forceDevUpdateConfig = true;
 
     updater.on("update-available", (info) => {
-      log.info("AutoUpdater: Update available", {
+      log.info("LauncherUpdater: Update available", {
         version: info.version,
         releaseDate: info.releaseDate,
       });
@@ -97,7 +101,7 @@ export class AutoUpdater implements AppModule {
     });
 
     updater.on("update-not-available", () => {
-      log.info("AutoUpdater: No updates available");
+      log.info("LauncherUpdater: No updates available");
       this.updateStatus = {
         ...this.updateStatus,
         available: false,
@@ -106,7 +110,7 @@ export class AutoUpdater implements AppModule {
     });
 
     updater.on("download-progress", (progress: ProgressInfo) => {
-      log.debug("AutoUpdater: Download progress", {
+      log.debug("LauncherUpdater: Download progress", {
         percent: Math.round(progress.percent),
         transferred: progress.transferred,
         total: progress.total,
@@ -126,7 +130,7 @@ export class AutoUpdater implements AppModule {
     });
 
     updater.on("update-downloaded", () => {
-      log.info("AutoUpdater: Update downloaded successfully");
+      log.info("LauncherUpdater: Update downloaded successfully");
       this.updateStatus = {
         ...this.updateStatus,
         downloading: false,
@@ -136,7 +140,7 @@ export class AutoUpdater implements AppModule {
     });
 
     updater.on("error", (error) => {
-      log.error("AutoUpdater: Error occurred", error);
+      log.error("LauncherUpdater: Error occurred", error);
       this.updateStatus = {
         ...this.updateStatus,
         downloading: false,
@@ -150,7 +154,7 @@ export class AutoUpdater implements AppModule {
     const windows = BrowserWindow.getAllWindows();
     windows.forEach((window) => {
       if (!window.isDestroyed()) {
-        window.webContents.send(`updater:${event}`, data);
+        window.webContents.send(`launcherUpdater:${event}`, data);
       }
     });
   }
@@ -164,7 +168,7 @@ export class AutoUpdater implements AppModule {
     const now = Date.now();
     if (now - this.lastCheckTime < this.CHECK_COOLDOWN_MS) {
       log.debug(
-        "AutoUpdater: Skipping update check - too soon after last check",
+        "LauncherUpdater: Skipping update check - too soon after last check",
         {
           timeSinceLastCheck: now - this.lastCheckTime,
           cooldownMs: this.CHECK_COOLDOWN_MS,
@@ -176,12 +180,12 @@ export class AutoUpdater implements AppModule {
 
     const updater = this.getAutoUpdater();
     try {
-      log.info("AutoUpdater: Checking for updates");
+      log.info("LauncherUpdater: Checking for updates");
       updater.fullChangelog = true;
 
       if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
         log.info(
-          "AutoUpdater: Using distribution channel",
+          "LauncherUpdater: Using distribution channel",
           import.meta.env.VITE_DISTRIBUTION_CHANNEL
         );
         updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
@@ -200,7 +204,7 @@ export class AutoUpdater implements AppModule {
       // In production, it returns an UpdateCheckResult object even when no update is available
       // We need to check the updateStatus.available flag that gets set by events
       const hasUpdate = result !== null && this.updateStatus.available;
-      log.info("AutoUpdater: Check for updates completed", {
+      log.info("LauncherUpdater: Check for updates completed", {
         hasUpdate,
         resultExists: !!result,
       });
@@ -209,10 +213,10 @@ export class AutoUpdater implements AppModule {
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes("No published versions")) {
-          log.warn("AutoUpdater: No published versions available");
+          log.warn("LauncherUpdater: No published versions available");
           return false;
         }
-        log.error("AutoUpdater: Failed to check for updates", error);
+        log.error("LauncherUpdater: Failed to check for updates", error);
       }
 
       throw error;
@@ -222,42 +226,48 @@ export class AutoUpdater implements AppModule {
   async downloadUpdate(): Promise<void> {
     const updater = this.getAutoUpdater();
     if (this.updateStatus.available) {
-      log.info("AutoUpdater: Starting update download");
+      log.info("LauncherUpdater: Starting update download");
       await updater.downloadUpdate();
     } else {
-      log.warn("AutoUpdater: Attempted to download update but none available");
+      log.warn(
+        "LauncherUpdater: Attempted to download update but none available"
+      );
     }
   }
 
   installUpdate(): void {
     const updater = this.getAutoUpdater();
     if (this.updateStatus.downloaded) {
-      log.info("AutoUpdater: Installing update and restarting application");
+      log.info("LauncherUpdater: Installing update and restarting application");
       updater.quitAndInstall();
     } else {
-      log.warn("AutoUpdater: Attempted to install update but none downloaded");
+      log.warn(
+        "LauncherUpdater: Attempted to install update but none downloaded"
+      );
     }
   }
 
   async installUpdateWithConfirmation(): Promise<void> {
-    log.info("AutoUpdater: installUpdateWithConfirmation called", {
+    log.info("LauncherUpdater: installUpdateWithConfirmation called", {
       downloaded: this.updateStatus.downloaded,
       version: this.updateStatus.version,
     });
 
     if (!this.updateStatus.downloaded) {
-      log.warn("AutoUpdater: Attempted to install update but none downloaded");
+      log.warn(
+        "LauncherUpdater: Attempted to install update but none downloaded"
+      );
       return;
     }
 
     try {
-      log.info("AutoUpdater: Showing mandatory update installation dialog");
+      log.info("LauncherUpdater: Showing mandatory update installation dialog");
 
       const allWindows = BrowserWindow.getAllWindows();
       const focusedWindow = BrowserWindow.getFocusedWindow();
       const targetWindow = focusedWindow || allWindows[0];
 
-      log.info("AutoUpdater: Window context", {
+      log.info("LauncherUpdater: Window context", {
         allWindowsCount: allWindows.length,
         hasFocusedWindow: !!focusedWindow,
         targetWindowExists: !!targetWindow,
@@ -265,7 +275,7 @@ export class AutoUpdater implements AppModule {
 
       if (!targetWindow) {
         log.error(
-          "AutoUpdater: No window available for dialog, installing directly"
+          "LauncherUpdater: No window available for dialog, installing directly"
         );
         this.installUpdate();
         return;
@@ -285,13 +295,15 @@ export class AutoUpdater implements AppModule {
         icon: undefined, // Use default icon
       });
 
-      log.info("AutoUpdater: Dialog result", { response: result.response });
-      log.info("AutoUpdater: Proceeding with mandatory update installation");
+      log.info("LauncherUpdater: Dialog result", { response: result.response });
+      log.info(
+        "LauncherUpdater: Proceeding with mandatory update installation"
+      );
       this.installUpdate();
     } catch (error) {
-      log.error("AutoUpdater: Failed to show confirmation dialog", error);
+      log.error("LauncherUpdater: Failed to show confirmation dialog", error);
       // Always install even if dialog fails - it's mandatory
-      log.info("AutoUpdater: Installing update anyway (mandatory)");
+      log.info("LauncherUpdater: Installing update anyway (mandatory)");
       this.installUpdate();
     }
   }
@@ -299,12 +311,12 @@ export class AutoUpdater implements AppModule {
   async runAutoUpdater(): Promise<boolean> {
     const updater = this.getAutoUpdater();
     try {
-      log.info("AutoUpdater: Running auto-updater with notifications");
+      log.info("LauncherUpdater: Running auto-updater with notifications");
       updater.fullChangelog = true;
 
       if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
         log.info(
-          "AutoUpdater: Using distribution channel for auto-updater",
+          "LauncherUpdater: Using distribution channel for auto-updater",
           import.meta.env.VITE_DISTRIBUTION_CHANNEL
         );
         updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
@@ -312,17 +324,17 @@ export class AutoUpdater implements AppModule {
 
       const result = await updater.checkForUpdatesAndNotify(this.#notification);
       const hasUpdate = !!result;
-      log.info("AutoUpdater: Auto-updater completed", { hasUpdate });
+      log.info("LauncherUpdater: Auto-updater completed", { hasUpdate });
       return hasUpdate;
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes("No published versions")) {
           log.warn(
-            "AutoUpdater: No published versions available for auto-updater"
+            "LauncherUpdater: No published versions available for auto-updater"
           );
           return false;
         }
-        log.error("AutoUpdater: Auto-updater failed", error);
+        log.error("LauncherUpdater: Auto-updater failed", error);
       }
 
       throw error;
@@ -330,8 +342,8 @@ export class AutoUpdater implements AppModule {
   }
 }
 
-export function autoUpdater(
-  ...args: ConstructorParameters<typeof AutoUpdater>
+export function launcherUpdater(
+  ...args: ConstructorParameters<typeof LauncherUpdater>
 ) {
-  return new AutoUpdater(...args);
+  return new LauncherUpdater(...args);
 }

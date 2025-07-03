@@ -1,6 +1,6 @@
 import type { AppModule } from "../AppModule.js";
 import { ModuleContext } from "../ModuleContext.js";
-import { BrowserWindow, ipcMain, app } from "electron";
+import { BrowserWindow, ipcMain, app, shell } from "electron";
 import type { AppInitConfig } from "../AppInitConfig.js";
 import { isUrlAllowed } from "../config/allowedUrls.js";
 import { join } from "path";
@@ -48,51 +48,6 @@ class WindowManager implements AppModule {
         window.close();
       }
     });
-
-    // Handle external URL opening
-    ipcMain.handle("system:openExternal", async (event, url: string) => {
-      // Validate URL before opening
-      if (!isUrlAllowed(url)) {
-        const error = `URL not allowed: ${url}`;
-        log.warn(error);
-        throw new Error(error);
-      }
-
-      const { shell } = await import("electron");
-      try {
-        await shell.openExternal(url);
-      } catch (error) {
-        log.error("Failed to open external URL:", error);
-        throw new Error(`Failed to open external URL: ${url}`);
-      }
-    });
-
-    // Handle app version requests
-    ipcMain.handle("system:getAppVersion", () => {
-      return app.getVersion();
-    });
-
-    // Handle log directory requests
-    ipcMain.handle("system:getLogDirectory", () => {
-      return join(app.getPath("userData"), "logs");
-    });
-
-    // Handle opening log directory
-    ipcMain.handle("system:openLogDirectory", async () => {
-      const { shell } = await import("electron");
-      const logDirectory = join(app.getPath("userData"), "logs");
-
-      try {
-        await shell.openPath(logDirectory);
-      } catch (error) {
-        log.error("Failed to open log directory:", error);
-        throw new Error(
-          `Failed to open log directory: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
-        );
-      }
-    });
   }
 
   async createWindow(): Promise<BrowserWindow> {
@@ -100,6 +55,7 @@ class WindowManager implements AppModule {
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
       frame: false, // Remove native window decorations
       backgroundColor: "#000000", // Black background to prevent white flash during resize
+      maximizable: false, // Prevent window maximizing
       minWidth: 1280,
       minHeight: 720,
       maxWidth: 1440,
