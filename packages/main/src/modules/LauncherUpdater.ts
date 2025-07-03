@@ -84,7 +84,7 @@ export class LauncherUpdater implements AppModule {
     log.transports.file.level = "info";
     log.info("LauncherUpdater: Configured electron-updater logging");
 
-    // Force dev update config for debugging
+    // DEBUG: Force dev update config for debugging
     // updater.forceDevUpdateConfig = true;
 
     updater.on("update-available", (info) => {

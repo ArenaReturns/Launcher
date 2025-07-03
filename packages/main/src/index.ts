@@ -8,7 +8,8 @@ import { hardwareAccelerationMode } from "./modules/HardwareAccelerationModule.j
 import { launcherUpdater } from "./modules/LauncherUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowedOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
-import { createGameClientModule } from "./modules/GameClientModule.js";
+import { createGameUpdaterModule } from "./modules/GameUpdater.js";
+import { createGameClientModule } from "./modules/GameClient.js";
 import { createNewsModule } from "./modules/NewsModule.js";
 import { systemIpcModule } from "./modules/SystemIPCModule.js";
 import { ALLOWED_EXTERNAL_ORIGINS } from "./config/allowedUrls.js";
@@ -28,6 +29,7 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: true }))
     .init(launcherUpdater())
+    .init(createGameUpdaterModule())
     .init(createGameClientModule())
     .init(createNewsModule())
     .init(systemIpcModule())

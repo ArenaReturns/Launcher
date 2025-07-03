@@ -55,6 +55,7 @@ class WindowManager implements AppModule {
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
       frame: false, // Remove native window decorations
       backgroundColor: "#000000", // Black background to prevent white flash during resize
+      maximizable: false, // Prevent window maximizing
       minWidth: 1280,
       minHeight: 720,
       maxWidth: 1440,

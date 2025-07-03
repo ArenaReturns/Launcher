@@ -36,23 +36,28 @@ const system = {
   openLogDirectory: () => ipcRenderer.invoke("system:openLogDirectory"),
 };
 
-// Game client functions
+// Game updater functions (install / update / download)
+const gameUpdater = {
+  getStatus: () => ipcRenderer.invoke("gameUpdater:getStatus"),
+  checkForUpdates: () => ipcRenderer.invoke("gameUpdater:checkForUpdates"),
+  startDownload: () => ipcRenderer.invoke("gameUpdater:startDownload"),
+  getDownloadProgress: () =>
+    ipcRenderer.invoke("gameUpdater:getDownloadProgress"),
+  cancelDownload: () => ipcRenderer.invoke("gameUpdater:cancelDownload"),
+  repairClient: () => ipcRenderer.invoke("gameUpdater:repairClient"),
+  openGameDirectory: () => ipcRenderer.invoke("gameUpdater:openGameDirectory"),
+};
+
+// Game client functions (launching, replays)
 const gameClient = {
-  getStatus: () => ipcRenderer.invoke("game:getStatus"),
-  checkForUpdates: () => ipcRenderer.invoke("game:checkForUpdates"),
-  startDownload: () => ipcRenderer.invoke("game:startDownload"),
-  getDownloadProgress: () => ipcRenderer.invoke("game:getDownloadProgress"),
-  cancelDownload: () => ipcRenderer.invoke("game:cancelDownload"),
   launchGame: (settings?: any) =>
-    ipcRenderer.invoke("game:launchGame", settings),
-  repairClient: () => ipcRenderer.invoke("game:repairClient"),
-  openGameDirectory: () => ipcRenderer.invoke("game:openGameDirectory"),
-  openReplaysFolder: () => ipcRenderer.invoke("game:openReplaysFolder"),
-  listReplays: () => ipcRenderer.invoke("game:listReplays"),
-  launchReplay: (replayPath: string, settings?: any) =>
-    ipcRenderer.invoke("game:launchReplay", replayPath, settings),
+    ipcRenderer.invoke("gameClient:launchGame", settings),
+  openReplaysFolder: () => ipcRenderer.invoke("gameClient:openReplaysFolder"),
+  listReplays: () => ipcRenderer.invoke("gameClient:listReplays"),
+  launchReplayOffline: (replayPath: string, settings?: any) =>
+    ipcRenderer.invoke("gameClient:launchReplayOffline", replayPath, settings),
   updateSettings: (settings: any) =>
-    ipcRenderer.invoke("game:updateSettings", settings),
+    ipcRenderer.invoke("gameClient:updateSettings", settings),
 };
 
 // News functions
@@ -73,7 +78,7 @@ const launcherUpdater = {
 const preloader = {
   initializeApp: async () => {
     // Check game status
-    const gameStatus = await gameClient.getStatus();
+    const gameStatus = await gameUpdater.getStatus();
 
     // Check for launcher updates
     const launcherUpdateStatus = await launcherUpdater.getStatus();
@@ -96,6 +101,7 @@ export {
   ipcEvents,
   windowControls,
   system,
+  gameUpdater,
   gameClient,
   news,
   launcherUpdater,

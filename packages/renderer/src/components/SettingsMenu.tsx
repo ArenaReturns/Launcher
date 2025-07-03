@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { SimpleSlider, SimpleSelect } from "./common/FormControls";
 import type { SettingsState } from "@/types";
-import { gameClient, system, ipcEvents } from "@app/preload";
+import { gameClient, gameUpdater, system } from "@app/preload";
+import { useGameStateContext } from "@/contexts/GameStateContext";
 import log from "@/utils/logger";
 
 interface SettingsMenuProps {
@@ -34,74 +35,9 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   settings,
   onSettingsChange,
 }) => {
-  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({
-    filesTotal: 0,
-    filesLoaded: 0,
-    isDownloading: false,
-  });
+  const { gameState, gameActions } = useGameStateContext();
   const [appVersion, setAppVersion] = useState<string>("");
   const [logDirectory, setLogDirectory] = useState<string>("");
-  const [isRepairing, setIsRepairing] = useState(false);
-
-  // Event-driven download progress updates when settings menu is open
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Fetch initial download progress state immediately
-    const fetchInitialState = async () => {
-      try {
-        const progress = await gameClient.getDownloadProgress();
-        setDownloadProgress(progress);
-        setIsRepairing(progress.isDownloading && progress.isRepairing);
-      } catch (error) {
-        log.error("Failed to get initial download progress:", error);
-      }
-    };
-
-    fetchInitialState();
-
-    // Event handlers for download progress updates
-    const handleDownloadStarted = (progress: DownloadProgress) => {
-      setDownloadProgress(progress);
-      setIsRepairing(progress.isRepairing || false);
-    };
-
-    const handleDownloadProgress = (progress: DownloadProgress) => {
-      setDownloadProgress(progress);
-      setIsRepairing(progress.isRepairing || false);
-    };
-
-    const handleDownloadComplete = (progress: DownloadProgress) => {
-      setDownloadProgress(progress);
-      setIsRepairing(false);
-    };
-
-    const handleDownloadCancelled = (progress: DownloadProgress) => {
-      setDownloadProgress(progress);
-      setIsRepairing(false);
-    };
-
-    const handleDownloadError = (progress: DownloadProgress) => {
-      setDownloadProgress(progress);
-      setIsRepairing(false);
-    };
-
-    // Register event listeners
-    ipcEvents.on("game:download-started", handleDownloadStarted);
-    ipcEvents.on("game:download-progress", handleDownloadProgress);
-    ipcEvents.on("game:download-complete", handleDownloadComplete);
-    ipcEvents.on("game:download-cancelled", handleDownloadCancelled);
-    ipcEvents.on("game:download-error", handleDownloadError);
-
-    // Cleanup event listeners when menu closes
-    return () => {
-      ipcEvents.off("game:download-started", handleDownloadStarted);
-      ipcEvents.off("game:download-progress", handleDownloadProgress);
-      ipcEvents.off("game:download-complete", handleDownloadComplete);
-      ipcEvents.off("game:download-cancelled", handleDownloadCancelled);
-      ipcEvents.off("game:download-error", handleDownloadError);
-    };
-  }, [isOpen]);
 
   // Fetch app version and log directory when settings menu opens
   useEffect(() => {
@@ -134,7 +70,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
 
   const handleOpenGameDirectory = async () => {
     try {
-      await gameClient.openGameDirectory();
+      await gameUpdater.openGameDirectory();
     } catch (error) {
       log.error("Failed to open game directory:", error);
     }
@@ -149,16 +85,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   };
 
   const handleRepairClient = async () => {
-    if (downloadProgress.isDownloading || isRepairing) return;
+    if (gameState.isDownloading || gameState.isRepairing) return;
 
     try {
-      // Set immediate loading state
-      setIsRepairing(true);
-      await gameClient.repairClient();
+      await gameActions.repairClient();
       // Progress will be tracked via the polling mechanism
     } catch (error) {
       log.error("Failed to repair client:", error);
-      setIsRepairing(false);
       // Show error notification
     }
   };
@@ -221,13 +154,11 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                 variant="outline"
                 className="w-full justify-start bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
                 onClick={handleRepairClient}
-                disabled={downloadProgress.isDownloading || isRepairing}
+                disabled={gameState.isDownloading || gameState.isRepairing}
               >
                 <Wrench className="h-4 w-4 mr-2" />
-                {downloadProgress.isDownloading || isRepairing
-                  ? downloadProgress.isRepairing || isRepairing
-                    ? "Réparation en cours..."
-                    : "Téléchargement en cours..."
+                {gameState.isRepairing
+                  ? "Réparation en cours..."
                   : "Réparer le client de jeu"}
               </Button>
 

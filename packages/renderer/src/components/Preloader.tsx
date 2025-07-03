@@ -1,276 +1,270 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import { TitleBar } from "./TitleBar";
-import { preloader, launcherUpdater, ipcEvents } from "@app/preload";
+import { launcherUpdater, ipcEvents, gameUpdater } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 import logoImage from "@/assets/logo.webp";
 
 interface PreloaderProps {
-  onComplete: (data: {
-    gameStatus: GameStatus;
-    updateStatus: UpdateStatus;
-  }) => void;
+  onComplete: (data: { updateStatus: UpdateStatus }) => void;
 }
 
+interface PreloaderState {
+  step:
+    | "launcher-check"
+    | "launcher-download"
+    | "launcher-install"
+    | "game-init"
+    | "complete";
+  progress: number;
+  message: string;
+  error: string | null;
+  canContinue: boolean;
+  isComplete: boolean;
+}
+
+const STEPS = {
+  "launcher-check": {
+    progress: 20,
+    message: "Vérification des mises à jour du launcher...",
+  },
+  "launcher-download": {
+    progress: 60,
+    message: "Téléchargement de la mise à jour...",
+  },
+  "launcher-install": {
+    progress: 80,
+    message: "Installation de la mise à jour...",
+  },
+  "game-init": {
+    progress: 95,
+    message: "Vérification des mises à jour du jeu...",
+  },
+  complete: { progress: 100, message: "Initialisation terminée" },
+} as const;
+
 export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
-  const [progress, setProgress] = useState(0);
-  const [currentMessage, setCurrentMessage] = useState(
-    "Initialisation du launcher..."
+  const [state, setState] = useState<PreloaderState>({
+    step: "launcher-check",
+    progress: 10,
+    message: "Initialisation du launcher...",
+    error: null,
+    canContinue: false,
+    isComplete: false,
+  });
+
+  const updateState = useCallback((updates: Partial<PreloaderState>) => {
+    setState((prevState) => ({ ...prevState, ...updates }));
+  }, []);
+
+  const setStep = useCallback(
+    (step: PreloaderState["step"], customMessage?: string) => {
+      const stepConfig = STEPS[step];
+      updateState({
+        step,
+        progress: stepConfig.progress,
+        message: customMessage || stepConfig.message,
+        error: null,
+      });
+    },
+    [updateState]
   );
-  const [error, setError] = useState<string | null>(null);
-  const [canContinue, setCanContinue] = useState(false);
-  const shouldStopRef = useRef(false);
 
-  // Listen to update events for progress tracking and errors
-  useEffect(() => {
-    const handleDownloadProgress = (status: UpdateStatus) => {
-      if (status.progress) {
-        const progressPercent = Math.round(status.progress.percent);
-        setProgress(20 + progressPercent * 0.3); // Map 0-100% to 20-50% of preloader
-        setCurrentMessage(
-          `Téléchargement de la mise à jour... ${progressPercent}%`
-        );
+  const setError = useCallback(
+    (error: string, canContinue = true) => {
+      log.error("Preloader error:", error);
+      updateState({
+        error,
+        canContinue,
+      });
+    },
+    [updateState]
+  );
+
+  const handleLauncherUpdateProgress = useCallback(
+    (updateStatus: UpdateStatus) => {
+      if (updateStatus.progress) {
+        const progressPercent = Math.round(updateStatus.progress.percent);
+        const downloadProgress = 20 + progressPercent * 0.4; // Map to 20-60%
+        updateState({
+          progress: downloadProgress,
+          message: `Téléchargement de la mise à jour... ${progressPercent}%`,
+        });
       }
-    };
+    },
+    [updateState]
+  );
 
-    const handleUpdateError = (status: UpdateStatus) => {
-      log.error("Preloader: Update error event received:", status);
+  const handleLauncherUpdateError = useCallback(
+    (updateStatus: UpdateStatus) => {
+      const errorMessage = `Erreur de mise à jour: ${
+        updateStatus.error || "Erreur inconnue"
+      }`;
       setError(
-        `Erreur de mise à jour: ${
-          status.error || "Erreur inconnue"
-        }\n\nLa mise à jour sera tentée au prochain démarrage.\nVous pouvez continuer à utiliser le launcher.`
+        `${errorMessage}\n\nLa mise à jour sera tentée au prochain démarrage.\nVous pouvez continuer à utiliser le launcher.`,
+        true
       );
-      setCanContinue(true);
-      setCurrentMessage("Erreur lors de la mise à jour");
-      shouldStopRef.current = true; // Stop initialization
-    };
+    },
+    [setError]
+  );
 
-    ipcEvents.on("launcherUpdater:download-progress", handleDownloadProgress);
-    ipcEvents.on("launcherUpdater:update-error", handleUpdateError);
+  // Set up event listeners
+  useEffect(() => {
+    ipcEvents.on(
+      "launcherUpdater:download-progress",
+      handleLauncherUpdateProgress
+    );
+    ipcEvents.on("launcherUpdater:update-error", handleLauncherUpdateError);
 
     return () => {
       ipcEvents.off(
         "launcherUpdater:download-progress",
-        handleDownloadProgress
+        handleLauncherUpdateProgress
       );
-      ipcEvents.off("launcherUpdater:update-error", handleUpdateError);
+      ipcEvents.off("launcherUpdater:update-error", handleLauncherUpdateError);
     };
-  }, []);
+  }, [handleLauncherUpdateProgress, handleLauncherUpdateError]);
 
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Step 1: Initialize launcher
-        setCurrentMessage("Initialisation du launcher...");
-        setProgress(10);
+  const initializeLauncher = useCallback(async () => {
+    try {
+      // Step 1: Check for launcher updates
+      setStep("launcher-check");
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
 
-        // Step 2: Check for app updates (BLOCKING)
-        setCurrentMessage("Vérification des mises à jour du launcher...");
-        setProgress(20);
+      const initialUpdateStatus = await launcherUpdater.getStatus();
+      log.info(
+        "Preloader: Initial launcher update status:",
+        initialUpdateStatus
+      );
 
-        let currentUpdateStatus = await launcherUpdater.getStatus();
-        log.info("Preloader: Initial update status:", currentUpdateStatus);
+      const hasUpdate = await launcherUpdater.checkForUpdates();
+      log.info("Preloader: Update check result:", { hasUpdate });
 
-        const hasUpdate = await launcherUpdater.checkForUpdates();
-        log.info("Preloader: Update check result:", { hasUpdate });
+      if (hasUpdate) {
+        // Step 2: Download update
+        setStep("launcher-download");
+        await launcherUpdater.downloadUpdate();
 
-        if (hasUpdate) {
-          // BLOCKING: Wait for update to be available and start download
-          setCurrentMessage("Téléchargement de la mise à jour...");
-          setProgress(25);
+        // Wait for download completion
+        let downloadComplete = false;
+        let currentUpdateStatus = initialUpdateStatus;
 
-          await launcherUpdater.downloadUpdate();
+        while (!downloadComplete) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          currentUpdateStatus = await launcherUpdater.getStatus();
 
-          // BLOCKING: Wait for download to complete by polling status
-          log.info("Preloader: Waiting for update download to complete");
-          let downloadComplete = false;
-
-          while (!downloadComplete) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            currentUpdateStatus = await launcherUpdater.getStatus();
-
-            if (currentUpdateStatus.downloaded) {
-              downloadComplete = true;
-              log.info("Preloader: Update download completed successfully");
-              break;
-            }
-
-            if (currentUpdateStatus.error) {
-              log.error(
-                "Preloader: Update download failed:",
-                currentUpdateStatus.error
-              );
-              break;
-            }
-          }
-
-          setProgress(50);
-
-          // If update downloaded successfully, show popup and install
           if (currentUpdateStatus.downloaded) {
-            setCurrentMessage("Installation de la mise à jour...");
-            log.info(
-              "Preloader: Update downloaded, showing installation dialog"
+            downloadComplete = true;
+            log.info("Preloader: Update download completed successfully");
+            break;
+          }
+
+          if (currentUpdateStatus.error) {
+            log.error(
+              "Preloader: Update download failed:",
+              currentUpdateStatus.error
             );
-
-            try {
-              log.info("Preloader: Calling launcherUpdater.installUpdate()");
-              await launcherUpdater.installUpdate();
-
-              // This should quit and restart - code after this won't execute
-              log.info("Preloader: Install called, app should restart");
-            } catch (installError) {
-              log.error("Preloader: Failed to install update:", installError);
-              const errorMessage =
-                installError instanceof Error
-                  ? installError.message
-                  : "Erreur inconnue";
-
-              setError(
-                `Échec de l'installation de la mise à jour: ${errorMessage}\n\nLa mise à jour sera tentée au prochain démarrage.\nVous pouvez continuer à utiliser le launcher.`
-              );
-              setCanContinue(true);
-              setCurrentMessage("Erreur lors de l'installation");
-
-              log.info(
-                "Preloader: Install error handled, STOPPING initialization"
-              );
-              return; // STOP COMPLETELY HERE
-            }
-          } else if (currentUpdateStatus.error) {
-            log.warn(
-              "Preloader: Update failed, continuing with launcher initialization"
-            );
-            // Continue with initialization
+            throw new Error(currentUpdateStatus.error);
           }
         }
 
-        // Step 3: Continue with normal initialization (only if no errors occurred)
-        if (shouldStopRef.current || error) {
-          log.info("Preloader: Stopping initialization due to update error");
-          return;
+        // Step 3: Install update
+        if (currentUpdateStatus.downloaded) {
+          setStep("launcher-install");
+          log.info("Preloader: Installing update");
+
+          try {
+            await launcherUpdater.installUpdate();
+            // This should quit and restart - code after this won't execute
+            log.info("Preloader: Install called, app should restart");
+            return; // Early return - app will restart
+          } catch (installError) {
+            const errorMessage =
+              installError instanceof Error
+                ? installError.message
+                : "Erreur inconnue";
+
+            throw new Error(`Échec de l'installation: ${errorMessage}`);
+          }
         }
-
-        setCurrentMessage("Téléchargement des métadonnées du jeu...");
-        setProgress(80);
-
-        const initResult = await preloader.initializeApp();
-
-        // Check again after game init in case error occurred during it
-        if (shouldStopRef.current || error) {
-          log.info(
-            "Preloader: Stopping initialization after game init due to error"
-          );
-          return;
-        }
-
-        if (initResult.gameStatus.error) {
-          log.warn(
-            "Preloader: Game status has error, but continuing",
-            initResult.gameStatus.error
-          );
-        }
-
-        setProgress(95);
-        setCurrentMessage("Finalisation de la configuration...");
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Final check before completing
-        if (shouldStopRef.current || error) {
-          log.info(
-            "Preloader: Stopping initialization before completion due to error"
-          );
-          return;
-        }
-
-        setProgress(100);
-
-        // Complete initialization
-        const finalResult = {
-          ...initResult,
-          updateStatus: currentUpdateStatus,
-        };
-
-        log.info("Preloader: Initialization complete, proceeding to main app");
-        onComplete(finalResult);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Une erreur inconnue s'est produite";
-        log.error("Preloader: Fatal initialization error", error);
-        setError(errorMessage);
-        setCurrentMessage("Erreur lors de l'initialisation");
-        setCanContinue(true);
       }
-    };
 
-    initializeApp();
-  }, [onComplete, error]);
+      // Step 4: Initialize game state
+      setStep("game-init");
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Let UI update
 
-  const handleContinueAnyway = () => {
-    log.info(
-      "Preloader: User chose to continue despite update errors, resetting state"
-    );
-    // Reset error states so initialization can continue
-    setError(null);
-    setCanContinue(false);
-    shouldStopRef.current = false;
+      // Initialize game state to prevent flickering later
+      log.info("Preloader: Initializing game state");
+      await gameUpdater.getStatus(); // This will trigger the game state initialization
 
-    // Restart the initialization from Step 3 (game metadata)
-    setCurrentMessage("Continuation de l'initialisation...");
-    setProgress(80);
+      // Step 5: Complete
+      setStep("complete");
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Brief pause before completion
 
-    const continueInitialization = async () => {
-      try {
-        const initResult = await preloader.initializeApp();
+      // Finalize with current update status
+      const finalUpdateStatus = await launcherUpdater.getStatus();
 
-        if (initResult.gameStatus.error) {
-          log.warn(
-            "Preloader: Game status has error, but continuing",
-            initResult.gameStatus.error
-          );
-        }
+      updateState({ isComplete: true });
 
-        setProgress(95);
-        setCurrentMessage("Finalisation de la configuration...");
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      // Complete initialization after a brief delay
+      setTimeout(() => {
+        onComplete({ updateStatus: finalUpdateStatus });
+      }, 200);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Une erreur inconnue s'est produite";
+      setError(errorMessage, true);
+    }
+  }, [setStep, setError, updateState, onComplete]);
 
-        setProgress(100);
+  const handleContinueAnyway = useCallback(async () => {
+    log.info("Preloader: User chose to continue despite errors");
 
-        // Complete initialization with update error noted
-        const finalResult = {
-          ...initResult,
+    try {
+      updateState({
+        error: null,
+        canContinue: false,
+        step: "game-init",
+        progress: 95,
+        message: "Continuation de l'initialisation...",
+      });
+
+      // Initialize game state
+      await gameUpdater.getStatus();
+
+      setStep("complete");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      updateState({ isComplete: true });
+
+      setTimeout(() => {
+        onComplete({
           updateStatus: {
             available: false,
             downloading: false,
             downloaded: false,
             error: "Update installation failed, but launcher continued",
           },
-        };
+        });
+      }, 200);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Une erreur inconnue s'est produite";
+      setError(errorMessage, true);
+    }
+  }, [updateState, setStep, onComplete, setError]);
 
-        log.info("Preloader: Initialization complete after continue anyway");
-        onComplete(finalResult);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Une erreur inconnue s'est produite";
-        log.error(
-          "Preloader: Error during continue anyway initialization",
-          error
-        );
-        setError(errorMessage);
-        setCurrentMessage("Erreur lors de l'initialisation");
-        setCanContinue(true);
-      }
-    };
-
-    continueInitialization();
-  };
+  // Initialize on mount
+  useEffect(() => {
+    initializeLauncher();
+  }, [initializeLauncher]);
 
   return (
     <div
@@ -293,6 +287,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
         {/* Preloader Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center space-y-8 max-w-md w-full animate-in slide-in-from-bottom-4 duration-1000 delay-300">
+            {/* Logo */}
             <div className="space-y-4">
               <img
                 src={logoImage}
@@ -302,19 +297,26 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
               />
             </div>
 
+            {/* Progress Section */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-white/80 text-xl transition-all duration-300">
-                  {currentMessage}
+                  {state.message}
                 </p>
-                <Progress value={progress} className="w-full h-2" />
+                <Progress value={state.progress} className="w-full h-2" />
               </div>
-              <p className="text-white/60 text-base">{Math.round(progress)}%</p>
 
-              {error && (
-                <StatusCard variant="error" className="mt-4">
-                  <p className="text-sm mb-3">{error}</p>
-                  {canContinue && (
+              <p className="text-white/60 text-base">
+                {Math.round(state.progress)}%
+              </p>
+
+              {/* Error Card */}
+              {state.error && (
+                <StatusCard variant="error" className="mt-4 text-left">
+                  <p className="text-sm mb-3 whitespace-pre-line">
+                    {state.error}
+                  </p>
+                  {state.canContinue && (
                     <Button
                       onClick={handleContinueAnyway}
                       variant="outline"

@@ -13,26 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { SettingsState } from "@/types";
-import { gameClient, ipcEvents } from "@app/preload";
+import { gameClient } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 
 interface MainLauncherProps {
-  gameStatus?: GameStatus;
   updateStatus?: UpdateStatus;
 }
 
-export const MainLauncher: React.FC<MainLauncherProps> = ({
-  gameStatus: initialGameStatus,
-  updateStatus,
-}) => {
+export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
   const [activeTab, setActiveTab] = useState("game");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showDevModeDialog, setShowDevModeDialog] = useState(false);
-  // Local state for gameStatus to handle updates after tab switches
-  const [gameStatus, setGameStatus] = useState<GameStatus | undefined>(
-    initialGameStatus
-  );
   const [settings, setSettings] = useState<SettingsState>({
     gameRamAllocation: 2,
     devModeEnabled: false,
@@ -45,35 +37,9 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
   const [konamiSequence, setKonamiSequence] = useState<string>("");
   const targetSequence = "devmode";
 
-  // Update local gameStatus when initialGameStatus changes
-  useEffect(() => {
-    setGameStatus(initialGameStatus);
-  }, [initialGameStatus]);
-
-  // Listen for download completion events to update game status
-  useEffect(() => {
-    const handleDownloadComplete = async () => {
-      try {
-        // Refresh game status after download completes
-        const updatedStatus = await gameClient.checkForUpdates();
-        setGameStatus(updatedStatus);
-      } catch (error) {
-        log.error("Failed to refresh game status after download:", error);
-      }
-    };
-
-    // Register event listener
-    ipcEvents.on("game:download-complete", handleDownloadComplete);
-
-    // Cleanup event listener on unmount
-    return () => {
-      ipcEvents.off("game:download-complete", handleDownloadComplete);
-    };
-  }, []);
-
   // Load settings from localStorage on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("arenaReturnsSettings");
+    const savedSettings = localStorage.getItem("launcherSettings");
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
@@ -86,7 +52,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
 
   // Save settings to localStorage and update backend when changed
   useEffect(() => {
-    localStorage.setItem("arenaReturnsSettings", JSON.stringify(settings));
+    localStorage.setItem("launcherSettings", JSON.stringify(settings));
 
     // Update the backend with current settings
     gameClient
@@ -141,10 +107,8 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({
 
         {/* Main Content */}
         <div className="flex-1 px-6 pb-6 overflow-hidden">
-          {activeTab === "game" && (
-            <GameTab gameStatus={gameStatus} updateStatus={updateStatus} />
-          )}
-          {activeTab === "replays" && <ReplaysTab gameStatus={gameStatus} />}
+          {activeTab === "game" && <GameTab updateStatus={updateStatus} />}
+          {activeTab === "replays" && <ReplaysTab />}
           {activeTab === "twitch" && <TwitchTab />}
         </div>
 

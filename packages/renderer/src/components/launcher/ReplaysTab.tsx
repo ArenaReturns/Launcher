@@ -13,90 +13,42 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { gameClient, ipcEvents } from "@app/preload";
+import { gameClient } from "@app/preload";
+import { useGameStateContext } from "@/contexts/GameStateContext";
 import log from "@/utils/logger";
 
-interface ReplaysTabProps {
-  gameStatus?: GameStatus;
-}
-
-export const ReplaysTab: React.FC<ReplaysTabProps> = ({
-  gameStatus: initialGameStatus,
-}) => {
+export const ReplaysTab: React.FC = () => {
   const [replays, setReplays] = useState<ReplayFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLaunching, setIsLaunching] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [gameStatus, setGameStatus] = useState<GameStatus | undefined>(
-    initialGameStatus
-  );
-  const [isCheckingGameStatus, setIsCheckingGameStatus] = useState(false);
+  const { gameState, gameActions } = useGameStateContext();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8; // 2x4 grid for better pagination
 
   useEffect(() => {
-    loadReplays();
-    refreshGameStatus();
-
-    // Listen for download events to disable replay launching during downloads
-    const handleDownloadStarted = () => {
-      setIsDownloading(true);
-    };
-
-    const handleDownloadComplete = () => {
-      setIsDownloading(false);
-      // Refresh game status after download completes
-      refreshGameStatus();
-    };
-
-    const handleDownloadCancelled = () => {
-      setIsDownloading(false);
-    };
-
-    const handleDownloadError = () => {
-      setIsDownloading(false);
-    };
-
-    // Add event listeners
-    ipcEvents.on("game:download-started", handleDownloadStarted);
-    ipcEvents.on("game:download-complete", handleDownloadComplete);
-    ipcEvents.on("game:download-cancelled", handleDownloadCancelled);
-    ipcEvents.on("game:download-error", handleDownloadError);
-
-    // Cleanup event listeners on unmount
-    return () => {
-      ipcEvents.off("game:download-started", handleDownloadStarted);
-      ipcEvents.off("game:download-complete", handleDownloadComplete);
-      ipcEvents.off("game:download-cancelled", handleDownloadCancelled);
-      ipcEvents.off("game:download-error", handleDownloadError);
-    };
+    loadReplays(true);
   }, []);
 
-  // Update gameStatus when initialGameStatus changes
-  useEffect(() => {
-    setGameStatus(initialGameStatus);
-  }, [initialGameStatus]);
-
-  const refreshGameStatus = async () => {
-    try {
-      setIsCheckingGameStatus(true);
-      const currentStatus = await gameClient.getStatus();
-      setGameStatus(currentStatus);
-    } catch (error) {
-      log.error("Failed to refresh game status:", error);
-    } finally {
-      setIsCheckingGameStatus(false);
-    }
-  };
-
-  const loadReplays = async () => {
+  const loadReplays = async (withDelay = false) => {
     try {
       setIsLoading(true);
-      const replayFiles = await gameClient.listReplays();
-      setReplays(replayFiles);
+
+      if (withDelay) {
+        // Add minimum loading time for better UX feedback
+        await Promise.all([
+          gameClient.listReplays(),
+          new Promise((resolve) => setTimeout(resolve, 300)), // 300ms minimum loading
+        ]).then(([replayFiles]) => {
+          setReplays(replayFiles);
+        });
+      } else {
+        const replayFiles = await gameClient.listReplays();
+        setReplays(replayFiles);
+      }
+
       // Reset to first page when loading new replays
       setCurrentPage(1);
     } catch (error) {
@@ -110,7 +62,7 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
-      await Promise.all([loadReplays(), refreshGameStatus()]);
+      await loadReplays(true); // Pass true to add delay
     } finally {
       setIsRefreshing(false);
     }
@@ -126,11 +78,7 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
 
   const handleLaunchReplay = async (replay: ReplayFile) => {
     // Check conditions before setting launching state
-    const canLaunch =
-      gameStatus?.isInstalled &&
-      !gameStatus?.needsUpdate &&
-      !isDownloading &&
-      !isLaunching;
+    const canLaunch = gameState.canLaunch && !isLaunching;
 
     if (!canLaunch) {
       return;
@@ -140,18 +88,7 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
       // Set launching state immediately after validation
       setIsLaunching(replay.filename);
 
-      // Get current settings from localStorage for replay launch
-      const savedSettings = localStorage.getItem("arenaReturnsSettings");
-      let settings;
-      if (savedSettings) {
-        try {
-          settings = JSON.parse(savedSettings);
-        } catch (error) {
-          log.error("Failed to parse settings:", error);
-        }
-      }
-
-      await gameClient.launchReplay(replay.fullPath, settings);
+      await gameActions.launchReplayOffline(replay.fullPath);
     } catch (error) {
       log.error("Failed to launch replay:", error);
     } finally {
@@ -159,25 +96,12 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
     }
   };
 
-  const canLaunchReplay = () => {
-    return (
-      gameStatus?.isInstalled &&
-      !gameStatus?.needsUpdate &&
-      !isDownloading &&
-      !isLaunching
-    );
-  };
-
   const shouldShowWarning = () => {
-    // Don't show warning if we're currently launching a replay or checking game status
-    if (isLaunching || isCheckingGameStatus) {
-      return false;
-    }
-    return !canLaunchReplay();
+    return !gameState.canLaunch && !isLaunching && !gameState.isLaunching;
   };
 
   const shouldShowGameStatusLoading = () => {
-    return isCheckingGameStatus && !isLaunching;
+    return gameState.isCheckingStatus && !isLaunching;
   };
 
   const formatDate = (date: Date) => {
@@ -247,7 +171,7 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
               onClick={handleRefresh}
               disabled={isRefreshing || isLoading}
             >
@@ -259,7 +183,7 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
               onClick={handleOpenReplaysFolder}
             >
               <FolderOpen className="h-4 w-4 mr-2" />
@@ -291,11 +215,11 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
             variant="warning"
             title="Impossible de lancer des replays"
             description={
-              !gameStatus?.isInstalled
+              !gameState.isInstalled
                 ? "Le jeu n'est pas installé"
-                : gameStatus?.needsUpdate
+                : gameState.needsUpdate
                 ? "Une mise à jour du jeu est requise"
-                : isDownloading
+                : gameState.isDownloading
                 ? "Téléchargement en cours"
                 : "Veuillez vérifier l'état du jeu"
             }
@@ -311,175 +235,188 @@ export const ReplaysTab: React.FC<ReplaysTabProps> = ({
 
         {/* Replays Grid */}
         {!isLoading && (
-          <div className="flex-1 min-h-0 flex flex-col">
-            <div className="flex-1 overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
-                {currentReplays.map((replay, index) => {
-                  const displayInfo = getReplayDisplayInfo(replay);
-                  const isCurrentlyLaunching = isLaunching === replay.filename;
+          <>
+            {replays.length > 0 ? (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+                    {currentReplays.map((replay, index) => {
+                      const displayInfo = getReplayDisplayInfo(replay);
+                      const isCurrentlyLaunching =
+                        isLaunching === replay.filename;
 
-                  return (
-                    <div
-                      key={replay.filename}
-                      className="bg-black/30 border border-white/10 text-white overflow-hidden hover:bg-black/40 transition-all duration-300 rounded-lg shadow-xl animate-in slide-in-from-bottom-4"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      <div className="relative">
-                        <div className="h-12 bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                          <div className="text-center">
-                            <Video className="h-5 w-5 mx-auto opacity-75" />
+                      return (
+                        <div
+                          key={replay.filename}
+                          className="bg-black/30 border border-white/10 text-white overflow-hidden hover:bg-black/40 transition-all duration-300 rounded-lg shadow-xl animate-in slide-in-from-bottom-4"
+                          style={{ animationDelay: `${index * 100}ms` }}
+                        >
+                          <div className="relative">
+                            <div className="h-12 bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                              <div className="text-center">
+                                <Video className="h-5 w-5 mx-auto opacity-75" />
+                              </div>
+                            </div>
+
+                            {!displayInfo.isValid && (
+                              <div className="absolute top-2 left-2">
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-gray-500 text-white"
+                                >
+                                  INCONNU
+                                </Badge>
+                              </div>
+                            )}
+
+                            {displayInfo.isValid && replay.date && (
+                              <div className="absolute top-2 right-2">
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-black/50 text-white"
+                                >
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  {replay.date.toLocaleDateString("fr-FR")}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-3">
+                            <h4 className="font-bold mb-1 truncate text-base">
+                              {displayInfo.title}
+                            </h4>
+                            <p className="text-xs text-white/70 mb-2">
+                              {displayInfo.subtitle}
+                            </p>
+
+                            {displayInfo.isValid &&
+                              replay.player1 &&
+                              replay.player2 && (
+                                <div className="flex items-center text-xs text-white/60 mb-2">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  Combat 1vs1
+                                </div>
+                              )}
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500/20 cursor-pointer"
+                              onClick={() => handleLaunchReplay(replay)}
+                              disabled={
+                                !gameState.canLaunch || isCurrentlyLaunching
+                              }
+                            >
+                              {isCurrentlyLaunching ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Lancement...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 mr-2" />
+                                  Regarder le replay
+                                </>
+                              )}
+                            </Button>
                           </div>
                         </div>
-
-                        {!displayInfo.isValid && (
-                          <div className="absolute top-2 left-2">
-                            <Badge
-                              variant="secondary"
-                              className="bg-gray-500 text-white"
-                            >
-                              INCONNU
-                            </Badge>
-                          </div>
-                        )}
-
-                        {displayInfo.isValid && replay.date && (
-                          <div className="absolute top-2 right-2">
-                            <Badge
-                              variant="secondary"
-                              className="bg-black/50 text-white"
-                            >
-                              <Calendar className="h-3 w-3 mr-1" />
-                              {replay.date.toLocaleDateString("fr-FR")}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-3">
-                        <h4 className="font-bold mb-1 truncate text-base">
-                          {displayInfo.title}
-                        </h4>
-                        <p className="text-xs text-white/70 mb-2">
-                          {displayInfo.subtitle}
-                        </p>
-
-                        {displayInfo.isValid &&
-                          replay.player1 &&
-                          replay.player2 && (
-                            <div className="flex items-center text-xs text-white/60 mb-2">
-                              <Users className="h-3 w-3 mr-1" />
-                              Combat 1vs1
-                            </div>
-                          )}
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500/20"
-                          onClick={() => handleLaunchReplay(replay)}
-                          disabled={!canLaunchReplay() || isCurrentlyLaunching}
-                        >
-                          {isCurrentlyLaunching ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Lancement...
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-2" />
-                              Regarder le replay
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Pagination - Now outside the scrollable area */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center space-x-2 mt-4 pb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/5 border-white/20 text-white hover:bg-white/10"
-                  onClick={handlePrevPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum =
-                      Math.max(1, Math.min(totalPages - 4, currentPage - 2)) +
-                      i;
-                    if (pageNum > totalPages) return null;
-
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={
-                          pageNum === currentPage ? "default" : "outline"
-                        }
-                        size="sm"
-                        className={
-                          pageNum === currentPage
-                            ? "bg-orange-500 text-white hover:bg-orange-600"
-                            : "bg-white/5 border-white/20 text-white hover:bg-white/10"
-                        }
-                        onClick={() => handlePageChange(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/5 border-white/20 text-white hover:bg-white/10"
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                {/* Pagination - Now outside the scrollable area */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center space-x-2 mt-4 pb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+
+                    <div className="flex items-center space-x-1">
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          const pageNum =
+                            Math.max(
+                              1,
+                              Math.min(totalPages - 4, currentPage - 2)
+                            ) + i;
+                          if (pageNum > totalPages) return null;
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                pageNum === currentPage ? "default" : "outline"
+                              }
+                              size="sm"
+                              className={
+                                pageNum === currentPage
+                                  ? "bg-orange-500 text-white hover:bg-orange-600"
+                                  : "bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                              }
+                              onClick={() => handlePageChange(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        }
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Page Info */}
+                {replays.length > 0 && (
+                  <div className="text-center text-xs text-white/50 pb-2">
+                    {totalPages > 1
+                      ? `Page ${currentPage} sur ${totalPages} • ${replays.length} replays au total`
+                      : `${replays.length} replay${
+                          replays.length > 1 ? "s" : ""
+                        }`}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-white/50">
+                  <Video className="h-16 w-16 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold">Aucun replay trouvé</h3>
+                  <p className="text-base mb-6">
+                    Si ils sont activés dans les paramètres du jeu,
+                    <br />
+                    vos replays apparaîtront ici après vos combats.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                    onClick={handleOpenReplaysFolder}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Ouvrir le dossier des replays
+                  </Button>
+                </div>
               </div>
             )}
-
-            {/* Page Info */}
-            {replays.length > 0 && (
-              <div className="text-center text-xs text-white/50 pb-2">
-                {totalPages > 1
-                  ? `Page ${currentPage} sur ${totalPages} • ${replays.length} replays au total`
-                  : `${replays.length} replay${replays.length > 1 ? "s" : ""}`}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No Replays State */}
-        {!isLoading && replays.length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-white/50">
-              <Video className="h-16 w-16 mx-auto mb-4" />
-              <h3 className="text-xl font-bold">Aucun replay trouvé</h3>
-              <p className="text-base mb-6">
-                Vos replays apparaîtront ici après vos combats.
-              </p>
-              <Button
-                variant="outline"
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
-                onClick={handleOpenReplaysFolder}
-              >
-                <FolderOpen className="h-4 w-4 mr-2" />
-                Ouvrir le dossier des replays
-              </Button>
-            </div>
-          </div>
+          </>
         )}
       </div>
     </div>
