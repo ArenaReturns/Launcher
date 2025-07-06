@@ -232,7 +232,7 @@ export function useGameState(): [GameState, GameStateActions] {
           updateState({
             needsUpdate: true,
             isLaunching: false,
-            error: "Mise à jour requise avant le lancement",
+            error: null, // Don't set error - let the button show update state
           });
           return;
         }
@@ -328,6 +328,7 @@ export function useGameState(): [GameState, GameStateActions] {
       updateState({
         isDownloading: false,
         isRepairing: false,
+        needsUpdate: false,
         downloadProgress: {
           filesTotal: progress.filesTotal,
           filesLoaded: progress.filesLoaded,

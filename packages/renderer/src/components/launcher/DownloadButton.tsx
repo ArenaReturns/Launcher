@@ -168,7 +168,7 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
           onClick={handleRetryDownload}
           variant="destructive"
           size="lg"
-          className="w-full h-14 transition-all duration-200 text-lg font-bold"
+          className="w-full h-14 transition-all duration-200 text-lg font-bold cursor-pointer"
           disabled={
             !gameState.canStartDownload ||
             recentlyLaunched ||

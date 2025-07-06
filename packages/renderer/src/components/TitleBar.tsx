@@ -41,7 +41,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onSettingsClick}
-            className="h-6 w-6 p-0 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10 transition-colors rounded-none"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
             <Settings className="h-3 w-3" />
