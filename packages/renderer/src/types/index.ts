@@ -4,7 +4,6 @@ export type DownloadState =
   | "paused"
   | "completed"
   | "error";
-export type TwitchMode = "vip" | "standard";
 
 export interface TwitchStream {
   id: string;
