@@ -1,10 +1,7 @@
 import type { AppModule } from "../AppModule.js";
 import { ModuleContext } from "../ModuleContext.js";
-import { BrowserWindow, ipcMain, app, shell } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import type { AppInitConfig } from "../AppInitConfig.js";
-import { isUrlAllowed } from "../config/allowedUrls.js";
-import { join } from "path";
-import log from "electron-log";
 
 class WindowManager implements AppModule {
   readonly #preload: { path: string };
