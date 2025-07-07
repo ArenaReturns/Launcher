@@ -34,7 +34,7 @@ const tabs: TabConfig[] = [
     label: "TWITCH",
     icon: Tv,
     color: "bg-purple-600",
-    disabled: true,
+    disabled: false,
   },
 ];
 

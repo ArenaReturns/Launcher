@@ -4,16 +4,28 @@ export type DownloadState =
   | "paused"
   | "completed"
   | "error";
-export type TwitchMode = "vip" | "standard";
 
 export interface TwitchStream {
   id: string;
-  streamerName: string;
+  user_id: string;
+  user_login: string;
+  user_name: string;
+  game_id: string;
+  game_name: string;
+  type: string;
   title: string;
-  game: string;
-  viewers: number;
-  isVip: boolean;
-  isLive: boolean;
+  viewer_count: number;
+  started_at: string;
+  language: string;
+  thumbnail_url: string;
+  tag_ids: string[];
+  tags: string[];
+  is_mature: boolean;
+}
+
+export interface TwitchApiResponse {
+  stream_count: number;
+  streams: TwitchStream[];
 }
 
 export interface SettingsState {

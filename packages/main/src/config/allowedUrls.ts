@@ -7,6 +7,7 @@ export const ALLOWED_EXTERNAL_ORIGINS = new Set([
   "https://launcher.cdn.arenareturns.com",
   "https://launcher.api.arenareturns.com",
   "https://discord.gg",
+  "https://twitch.tv",
 ]);
 
 /**
