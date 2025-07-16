@@ -17,9 +17,9 @@
   },
   "devDependencies": {
     "@app/electron-versions": "*",
-    "@types/node": "24.0.10",
+    "@types/node": "24.0.14",
     "mlly": "1.7.4",
     "typescript": "5.8.3",
-    "vite": "7.0.2"
+    "vite": "7.0.4"
   }
 }
