@@ -1,7 +1,7 @@
 {
   "name": "arena-returns-launcher",
   "description": "Le launcher officiel d'Arena Returns - Dofus Arena",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "private": true,
   "type": "module",
   "author": {
@@ -25,8 +25,8 @@
   },
   "devDependencies": {
     "@npmcli/map-workspaces": "4.0.2",
-    "@types/node": "24.0.15",
-    "electron": "37.2.3",
+    "@types/node": "24.1.0",
+    "electron": "37.2.4",
     "electron-builder": "26.0.12",
     "glob": "11.0.3",
     "rimraf": "6.0.1"
