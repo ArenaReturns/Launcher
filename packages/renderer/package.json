@@ -40,7 +40,7 @@
     "tw-animate-css": "1.3.5",
     "typescript": "5.8.3",
     "typescript-eslint": "8.37.0",
-    "vite": "7.0.5"
+    "vite": "7.0.6"
   },
   "main": "./dist/index.html",
   "exports": {
