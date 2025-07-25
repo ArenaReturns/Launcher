@@ -26,18 +26,31 @@ interface SettingsMenuProps {
   isOpen: boolean;
   onClose: () => void;
   settings: SettingsState;
-  onSettingsChange: (settings: SettingsState) => void;
+  onSaveSettings: (settings: SettingsState) => Promise<void>;
 }
 
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   isOpen,
   onClose,
   settings,
-  onSettingsChange,
+  onSaveSettings,
 }) => {
   const { gameState, gameActions } = useGameStateContext();
   const [appVersion, setAppVersion] = useState<string>("");
   const [logDirectory, setLogDirectory] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Local settings state for editing (doesn't affect main UI)
+  const [localSettings, setLocalSettings] = useState<SettingsState>(settings);
+
+  // Update local settings when menu opens or settings prop changes
+  useEffect(() => {
+    if (isOpen) {
+      setLocalSettings(settings);
+      setSaveError(null);
+    }
+  }, [isOpen, settings]);
 
   // Fetch app version and log directory when settings menu opens
   useEffect(() => {
@@ -62,10 +75,34 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   }, [isOpen]);
 
   const updateSetting = (key: keyof SettingsState, value: unknown) => {
-    onSettingsChange({
-      ...settings,
+    setLocalSettings({
+      ...localSettings,
       [key]: value,
     });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await onSaveSettings(localSettings);
+      onClose();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur de sauvegarde";
+      setSaveError(errorMessage);
+      log.error("Failed to save settings:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    // Reset local settings to original
+    setLocalSettings(settings);
+    setSaveError(null);
+    onClose();
   };
 
   const handleOpenGameDirectory = async () => {
@@ -185,10 +222,10 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
             <CardContent className="space-y-4">
               <div>
                 <label className="text-white/80 text-base block mb-2">
-                  RAM allouée au jeu: {settings.gameRamAllocation} GB
+                  RAM allouée au jeu: {localSettings.gameRamAllocation} GB
                 </label>
                 <SimpleSlider
-                  value={settings.gameRamAllocation}
+                  value={localSettings.gameRamAllocation}
                   onChange={(value) =>
                     updateSetting("gameRamAllocation", Math.max(1, value))
                   }
@@ -204,7 +241,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
           </Card>
 
           {/* Developer Mode - Only show if enabled */}
-          {settings.devModeEnabled && (
+          {localSettings.devModeEnabled && (
             <Card className="bg-black/30 border-white/10 md:col-span-2">
               <CardHeader>
                 <CardTitle className="text-yellow-400 flex items-center">
@@ -226,7 +263,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     Environnement CDN
                   </label>
                   <SimpleSelect
-                    value={settings.devCdnEnvironment}
+                    value={localSettings.devCdnEnvironment}
                     onChange={(value) =>
                       updateSetting(
                         "devCdnEnvironment",
@@ -246,7 +283,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={settings.devForceVersion}
+                    value={localSettings.devForceVersion}
                     onChange={(e) =>
                       updateSetting("devForceVersion", e.target.value)
                     }
@@ -260,7 +297,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     Arguments Java supplémentaires
                   </label>
                   <textarea
-                    value={settings.devExtraJavaArgs}
+                    value={localSettings.devExtraJavaArgs}
                     onChange={(e) =>
                       updateSetting("devExtraJavaArgs", e.target.value)
                     }
@@ -281,19 +318,25 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
           <Button
             variant="outline"
             size="default"
-            onClick={onClose}
+            onClick={handleCancel}
             className="cursor-pointer"
           >
             Annuler
           </Button>
           <Button
-            onClick={onClose}
+            onClick={handleSave}
             size="default"
             className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+            disabled={isSaving}
           >
-            Sauvegarder
+            {isSaving ? "Sauvegarde en cours..." : "Sauvegarder"}
           </Button>
         </div>
+        {saveError && (
+          <div className="text-red-500 text-sm mt-4 text-center">
+            Erreur de sauvegarde: {saveError}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

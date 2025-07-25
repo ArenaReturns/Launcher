@@ -37,11 +37,8 @@ export interface GameStateActions {
   startDownload: () => Promise<void>;
   cancelDownload: () => Promise<void>;
   repairClient: () => Promise<void>;
-  launchGame: (settings?: unknown) => Promise<void>;
-  launchReplayOffline: (
-    replayPath: string,
-    settings?: unknown
-  ) => Promise<void>;
+  launchGame: () => Promise<void>;
+  launchReplayOffline: (replayPath: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -69,6 +66,7 @@ export function useGameState(): [GameState, GameStateActions] {
   const [state, setState] = useState<GameState>(initialState);
   const isInitialized = useRef(false);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const isRefreshing = useRef(false);
 
   // Compute derived properties
   const computeState = useCallback(
@@ -137,8 +135,11 @@ export function useGameState(): [GameState, GameStateActions] {
 
   // Refresh game status
   const refreshStatus = useCallback(async () => {
-    if (state.isCheckingStatus) return;
+    if (state.isCheckingStatus || isRefreshing.current) {
+      return;
+    }
 
+    isRefreshing.current = true;
     try {
       updateState({ isCheckingStatus: true, error: null });
 
@@ -168,6 +169,8 @@ export function useGameState(): [GameState, GameStateActions] {
         error: error instanceof Error ? error.message : "Erreur inconnue",
         isCheckingStatus: false,
       });
+    } finally {
+      isRefreshing.current = false;
     }
   }, [state.isCheckingStatus, updateState]);
 
@@ -219,50 +222,47 @@ export function useGameState(): [GameState, GameStateActions] {
   }, [state.canStartDownload, updateState]);
 
   // Launch game
-  const launchGame = useCallback(
-    async (settings?: unknown) => {
-      if (!state.canLaunch) return;
+  const launchGame = useCallback(async () => {
+    if (!state.canLaunch) return;
 
-      try {
-        updateState({ isLaunching: true, error: null });
+    try {
+      updateState({ isLaunching: true, error: null });
 
-        // Double-check status before launching
-        const currentStatus = await gameUpdater.checkForUpdates();
-        if (currentStatus.needsUpdate) {
-          updateState({
-            needsUpdate: true,
-            isLaunching: false,
-            error: null, // Don't set error - let the button show update state
-          });
-          return;
-        }
-
-        await gameClient.launchGame(settings);
-
-        // Keep launching state for a moment to prevent double-clicks
-        setTimeout(() => {
-          updateState({ isLaunching: false });
-        }, 2000);
-      } catch (error) {
-        log.error("Failed to launch game:", error);
+      // Double-check status before launching
+      const currentStatus = await gameUpdater.checkForUpdates();
+      if (currentStatus.needsUpdate) {
         updateState({
+          needsUpdate: true,
           isLaunching: false,
-          error: error instanceof Error ? error.message : "Échec du lancement",
+          error: null, // Don't set error - let the button show update state
         });
+        return;
       }
-    },
-    [state.canLaunch, updateState]
-  );
+
+      await gameClient.launchGame();
+
+      // Keep launching state for a moment to prevent double-clicks
+      setTimeout(() => {
+        updateState({ isLaunching: false });
+      }, 2000);
+    } catch (error) {
+      log.error("Failed to launch game:", error);
+      updateState({
+        isLaunching: false,
+        error: error instanceof Error ? error.message : "Échec du lancement",
+      });
+    }
+  }, [state.canLaunch, updateState]);
 
   // Launch replay offline (no CDN check)
   const launchReplayOffline = useCallback(
-    async (replayPath: string, settings?: unknown) => {
+    async (replayPath: string) => {
       // Only check if game is locally installed, no network check
       if (!state.isInstalled) return;
 
       try {
         updateState({ isLaunching: true, error: null });
-        await gameClient.launchReplayOffline(replayPath, settings);
+        await gameClient.launchReplayOffline(replayPath);
 
         setTimeout(() => {
           updateState({ isLaunching: false });
@@ -354,12 +354,17 @@ export function useGameState(): [GameState, GameStateActions] {
       });
     };
 
+    const handleStatusChanged = () => {
+      refreshStatus();
+    };
+
     // Register event listeners
     ipcEvents.on("gameUpdater:download-started", handleDownloadStarted);
     ipcEvents.on("gameUpdater:download-progress", handleDownloadProgress);
     ipcEvents.on("gameUpdater:download-complete", handleDownloadComplete);
     ipcEvents.on("gameUpdater:download-cancelled", handleDownloadCancelled);
     ipcEvents.on("gameUpdater:download-error", handleDownloadError);
+    ipcEvents.on("gameUpdater:status-changed", handleStatusChanged);
 
     return () => {
       ipcEvents.off("gameUpdater:download-started", handleDownloadStarted);
@@ -367,6 +372,7 @@ export function useGameState(): [GameState, GameStateActions] {
       ipcEvents.off("gameUpdater:download-complete", handleDownloadComplete);
       ipcEvents.off("gameUpdater:download-cancelled", handleDownloadCancelled);
       ipcEvents.off("gameUpdater:download-error", handleDownloadError);
+      ipcEvents.off("gameUpdater:status-changed", handleStatusChanged);
     };
   }, [updateState, refreshStatus]);
 

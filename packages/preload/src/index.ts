@@ -34,6 +34,9 @@ const system = {
   getAppVersion: () => ipcRenderer.invoke("system:getAppVersion"),
   getLogDirectory: () => ipcRenderer.invoke("system:getLogDirectory"),
   openLogDirectory: () => ipcRenderer.invoke("system:openLogDirectory"),
+  loadSettings: () => ipcRenderer.invoke("system:loadSettings"),
+  saveSettings: (settings: any) =>
+    ipcRenderer.invoke("system:saveSettings", settings),
 };
 
 // Game updater functions (install / update / download)
@@ -50,14 +53,11 @@ const gameUpdater = {
 
 // Game client functions (launching, replays)
 const gameClient = {
-  launchGame: (settings?: any) =>
-    ipcRenderer.invoke("gameClient:launchGame", settings),
+  launchGame: () => ipcRenderer.invoke("gameClient:launchGame"),
   openReplaysFolder: () => ipcRenderer.invoke("gameClient:openReplaysFolder"),
   listReplays: () => ipcRenderer.invoke("gameClient:listReplays"),
-  launchReplayOffline: (replayPath: string, settings?: any) =>
-    ipcRenderer.invoke("gameClient:launchReplayOffline", replayPath, settings),
-  updateSettings: (settings: any) =>
-    ipcRenderer.invoke("gameClient:updateSettings", settings),
+  launchReplayOffline: (replayPath: string) =>
+    ipcRenderer.invoke("gameClient:launchReplayOffline", replayPath),
 };
 
 // News functions

@@ -4,8 +4,12 @@ import { shell, ipcMain, app } from "electron";
 import * as path from "path";
 import log from "electron-log";
 import { isUrlAllowed } from "../config/allowedUrls.js";
+import { getSettingsManager } from "../services/SettingsManager.js";
+import type { GameSettings } from "./GameUpdater.js";
 
 export class SystemIPCModule implements AppModule {
+  private settingsManager = getSettingsManager();
+
   private registerWindowControlHandlers(): void {
     // Handle external URL opening
     ipcMain.handle("system:openExternal", async (event, url: string) => {
@@ -51,8 +55,26 @@ export class SystemIPCModule implements AppModule {
     });
   }
 
-  enable(_context: ModuleContext): Promise<void> | void {
+  private registerSettingsHandlers(): void {
+    // Handle settings loading
+    ipcMain.handle("system:loadSettings", () => {
+      return this.settingsManager.getCurrentSettings();
+    });
+
+    // Handle settings saving
+    ipcMain.handle(
+      "system:saveSettings",
+      async (_e, settings: GameSettings) => {
+        await this.settingsManager.saveSettings(settings);
+      }
+    );
+  }
+
+  enable(context: ModuleContext): Promise<void> | void {
+    log.debug("SystemIPCModule enabled with settings:", context.settings);
+
     this.registerWindowControlHandlers();
+    this.registerSettingsHandlers();
   }
 }
 
