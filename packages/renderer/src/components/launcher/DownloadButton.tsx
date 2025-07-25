@@ -62,18 +62,7 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
 
   const handleLaunchGame = async () => {
     try {
-      // Get current settings from localStorage
-      const savedSettings = localStorage.getItem("launcherSettings");
-      let settings;
-      if (savedSettings) {
-        try {
-          settings = JSON.parse(savedSettings);
-        } catch (error) {
-          log.error("Failed to parse settings:", error);
-        }
-      }
-
-      await gameActions.launchGame(settings);
+      await gameActions.launchGame();
 
       // Set recently launched state to prevent double-clicking
       setRecentlyLaunched(true);

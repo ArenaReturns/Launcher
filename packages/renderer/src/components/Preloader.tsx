@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import React, { useState, useCallback, useEffect } from "react";
 import { StatusCard } from "@/components/ui/status-card";
-import { TitleBar } from "./TitleBar";
-import { launcherUpdater, ipcEvents, gameUpdater } from "@app/preload";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { launcherUpdater, ipcEvents, gameUpdater, system } from "@app/preload";
 import log from "@/utils/logger";
+import type { SettingsState } from "@/types";
 import backgroundImage from "@/assets/background.jpg";
 import logoImage from "@/assets/logo.webp";
+import { TitleBar } from "./TitleBar";
 
 interface PreloaderProps {
-  onComplete: (data: { updateStatus: UpdateStatus }) => void;
+  onComplete: (data: {
+    updateStatus: UpdateStatus;
+    settings: SettingsState;
+  }) => void;
 }
 
 interface PreloaderState {
@@ -196,9 +200,13 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
       setStep("game-init");
       await new Promise((resolve) => setTimeout(resolve, 500)); // Let UI update
 
-      // Initialize game state to prevent flickering later
+      // Initialize game state
       log.info("Preloader: Initializing game state");
-      await gameUpdater.getStatus(); // This will trigger the game state initialization
+      await gameUpdater.getStatus();
+
+      // Load settings for UI
+      log.info("Preloader: Loading settings for UI");
+      const settings = await system.loadSettings();
 
       // Step 5: Complete
       setStep("complete");
@@ -211,7 +219,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
 
       // Complete initialization after a brief delay
       setTimeout(() => {
-        onComplete({ updateStatus: finalUpdateStatus });
+        onComplete({ updateStatus: finalUpdateStatus, settings });
       }, 200);
     } catch (error) {
       const errorMessage =
@@ -235,7 +243,12 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
       });
 
       // Initialize game state
+      log.info("Preloader: Initializing game state (error recovery)");
       await gameUpdater.getStatus();
+
+      // Load settings for UI
+      log.info("Preloader: Loading settings for UI (error recovery)");
+      const settings = await system.loadSettings();
 
       setStep("complete");
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -250,6 +263,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
             downloaded: false,
             error: "Update installation failed, but launcher continued",
           },
+          settings,
         });
       }, 200);
     } catch (error) {

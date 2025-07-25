@@ -7,18 +7,23 @@ import { news, ipcEvents, system } from "@app/preload";
 import log from "@/utils/logger";
 import logoImage from "@/assets/logo.webp";
 import { useGameStateContext } from "@/contexts/GameStateContext";
+import type { SettingsState } from "@/types";
 
 interface GameTabProps {
   updateStatus?: UpdateStatus;
+  settings?: SettingsState;
 }
 
-export const GameTab: React.FC<GameTabProps> = ({ updateStatus }) => {
+export const GameTab: React.FC<GameTabProps> = ({ updateStatus, settings }) => {
   const { gameState } = useGameStateContext();
   const [isDownloading, setIsDownloading] = useState(false);
   const [newsState, setNewsState] = useState<NewsState>({
     articles: [],
     isLoading: true,
   });
+
+  // Check if we're in staging mode
+  const isStaging = settings?.devCdnEnvironment === "staging";
 
   useEffect(() => {
     // Load news articles
@@ -140,8 +145,13 @@ export const GameTab: React.FC<GameTabProps> = ({ updateStatus }) => {
               {/* Hide version text during downloads to save space */}
               {!isDownloading && (
                 <p className="text-base text-white/60">
+                  {isStaging && (
+                    <span className="text-orange-400 font-semibold mr-2">
+                      [STAGING]
+                    </span>
+                  )}
                   {gameState.remoteVersion
-                    ? `Dernière version du client : ${gameState.remoteVersion}`
+                    ? `Dernière version : ${gameState.remoteVersion}`
                     : "Vérification de la version..."}
                 </p>
               )}

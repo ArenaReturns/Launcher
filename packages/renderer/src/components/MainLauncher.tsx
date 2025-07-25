@@ -13,52 +13,37 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { SettingsState } from "@/types";
-import { gameClient } from "@app/preload";
+import { system } from "@app/preload";
 import log from "@/utils/logger";
 import backgroundImage from "@/assets/background.jpg";
 
 interface MainLauncherProps {
   updateStatus?: UpdateStatus;
+  initialSettings: SettingsState;
 }
 
-export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
+export const MainLauncher: React.FC<MainLauncherProps> = ({
+  updateStatus,
+  initialSettings,
+}) => {
   const [activeTab, setActiveTab] = useState("game");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showDevModeDialog, setShowDevModeDialog] = useState(false);
-  const [settings, setSettings] = useState<SettingsState>({
-    gameRamAllocation: 2,
-    devModeEnabled: false,
-    devExtraJavaArgs: "",
-    devForceVersion: "",
-    devCdnEnvironment: "production",
-  });
+  const [settings, setSettings] = useState<SettingsState>(initialSettings);
 
   // Konami code state
   const [konamiSequence, setKonamiSequence] = useState<string>("");
   const targetSequence = "devmode";
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem("launcherSettings");
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setSettings(parsed);
-      } catch (error) {
-        log.error("Failed to load settings:", error);
-      }
+  const saveSettings = async (newSettings: SettingsState) => {
+    try {
+      await system.saveSettings(newSettings);
+      setSettings(newSettings); // Update local state with saved settings
+    } catch (error) {
+      log.error("Failed to save settings:", error);
+      throw error; // Re-throw so UI can handle the error
     }
-  }, []);
-
-  // Save settings to localStorage and update backend when changed
-  useEffect(() => {
-    localStorage.setItem("launcherSettings", JSON.stringify(settings));
-
-    // Update the backend with current settings
-    gameClient
-      .updateSettings(settings)
-      .catch((error) => log.error("Failed to update settings:", error));
-  }, [settings]);
+  };
 
   // Konami code detection
   useEffect(() => {
@@ -107,7 +92,9 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
 
         {/* Main Content */}
         <div className="flex-1 px-6 pb-6 overflow-hidden">
-          {activeTab === "game" && <GameTab updateStatus={updateStatus} />}
+          {activeTab === "game" && (
+            <GameTab updateStatus={updateStatus} settings={settings} />
+          )}
           {activeTab === "replays" && <ReplaysTab />}
           {activeTab === "twitch" && <TwitchTab />}
         </div>
@@ -117,7 +104,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           settings={settings}
-          onSettingsChange={setSettings}
+          onSaveSettings={saveSettings}
         />
 
         {/* Developer Mode Activation Dialog */}
@@ -143,7 +130,7 @@ export const MainLauncher: React.FC<MainLauncherProps> = ({ updateStatus }) => {
             <div className="flex justify-end mt-4">
               <Button
                 onClick={() => setShowDevModeDialog(false)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
               >
                 Compris
               </Button>

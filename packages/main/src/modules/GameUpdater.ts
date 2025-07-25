@@ -107,6 +107,11 @@ export class GameUpdater implements AppModule {
   }
 
   async enable(context: ModuleContext): Promise<void> {
+    log.debug("GameUpdater module enabled with settings:", context.settings);
+
+    // Initialize with settings from context
+    this.updateSettings(context.settings);
+
     // Register IPC handlers for updating/downloading related actions
     ipcMain.handle("gameUpdater:getStatus", () => this.getGameStatus());
     ipcMain.handle("gameUpdater:checkForUpdates", () => this.checkForUpdates());
@@ -121,12 +126,17 @@ export class GameUpdater implements AppModule {
     );
   }
 
+  onSettingsUpdate(settings: GameSettings): void {
+    log.debug("GameUpdater received settings update:", settings);
+    this.updateSettings(settings);
+  }
+
   // ---------------- Version helpers ----------------
   async getGameStatus(): Promise<GameStatus> {
     try {
       const [localVersion, remoteVersion] = await Promise.all([
         this.getLocalVersion(),
-        this.getRemoteVersion(this.currentSettings),
+        this.getRemoteVersion(),
       ]);
 
       const isInstalled = localVersion !== null;
@@ -154,7 +164,23 @@ export class GameUpdater implements AppModule {
   }
 
   updateSettings(settings: GameSettings): void {
+    const previousSettings = this.currentSettings;
     this.currentSettings = settings;
+
+    // Check if CDN environment changed
+    if (previousSettings) {
+      if (previousSettings.devCdnEnvironment !== settings.devCdnEnvironment) {
+        log.debug(
+          `CDN environment changed from ${previousSettings.devCdnEnvironment} to ${settings.devCdnEnvironment}, notifying UI to refresh status`
+        );
+
+        this.notifyRenderer("status-changed", {});
+      }
+    }
+  }
+
+  getGameClientPath(): string {
+    return this.gameClientPath;
   }
 
   private async getLocalVersion(): Promise<string | null> {
@@ -168,17 +194,22 @@ export class GameUpdater implements AppModule {
     }
   }
 
-  private async getRemoteVersion(settings?: GameSettings): Promise<string> {
+  private async getRemoteVersion(): Promise<string> {
     const environment =
-      settings?.devModeEnabled && settings?.devCdnEnvironment
-        ? settings.devCdnEnvironment
+      this.currentSettings?.devModeEnabled &&
+      this.currentSettings?.devCdnEnvironment
+        ? this.currentSettings.devCdnEnvironment
         : this.environment;
 
-    if (settings?.devModeEnabled && settings?.devForceVersion) {
-      return settings.devForceVersion;
+    if (
+      this.currentSettings?.devModeEnabled &&
+      this.currentSettings?.devForceVersion
+    ) {
+      return this.currentSettings.devForceVersion;
     }
 
     const cdnUrl = `${this.cdnUrl}/${environment}.json`;
+    log.debug(`Fetching version info from ${cdnUrl}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -242,7 +273,7 @@ export class GameUpdater implements AppModule {
 
       this.notifyRenderer("download-started", this.downloadProgress);
 
-      const remoteVersion = await this.getRemoteVersion(this.currentSettings);
+      const remoteVersion = await this.getRemoteVersion();
       const manifestResponse = await fetch(
         `${this.cdnUrl}/versions/${remoteVersion}.json`
       );
@@ -300,7 +331,7 @@ export class GameUpdater implements AppModule {
 
       this.notifyRenderer("download-started", this.downloadProgress);
 
-      const remoteVersion = await this.getRemoteVersion(this.currentSettings);
+      const remoteVersion = await this.getRemoteVersion();
       const manifestResponse = await fetch(
         `${this.cdnUrl}/versions/${remoteVersion}.json`
       );

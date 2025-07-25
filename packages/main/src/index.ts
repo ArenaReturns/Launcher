@@ -13,12 +13,33 @@ import { createGameClientModule } from "./modules/GameClient.js";
 import { createNewsModule } from "./modules/NewsModule.js";
 import { systemIpcModule } from "./modules/SystemIPCModule.js";
 import { ALLOWED_EXTERNAL_ORIGINS } from "./config/allowedUrls.js";
+import { getSettingsManager } from "./services/SettingsManager.js";
+import { app } from "electron";
+import type { ModuleContext } from "./ModuleContext.js";
 
 export async function initApp(initConfig: AppInitConfig) {
   // Initialize logging first
   setupLogger();
 
-  const moduleRunner = createModuleRunner()
+  // Load settings before any modules are initialized
+  const settingsManager = getSettingsManager();
+  const settings = await settingsManager.loadSettings();
+
+  // Create module context with settings
+  const moduleContext: ModuleContext = {
+    app,
+    settings,
+    onSettingsChange: settingsManager.onSettingsChange.bind(settingsManager),
+  };
+
+  // Create module instances (now they have access to settings from the start)
+  const gameUpdater = createGameUpdaterModule();
+  const gameClient = createGameClientModule();
+
+  // Connect the modules so GameClient can call GameUpdater methods
+  gameClient.setGameUpdater(gameUpdater);
+
+  const moduleRunner = createModuleRunner(moduleContext)
     .init(
       createWindowManagerModule({
         initConfig,
@@ -29,8 +50,8 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: true }))
     .init(launcherUpdater())
-    .init(createGameUpdaterModule())
-    .init(createGameClientModule())
+    .init(gameUpdater)
+    .init(gameClient)
     .init(createNewsModule())
     .init(systemIpcModule())
 
