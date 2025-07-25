@@ -70,6 +70,10 @@ export class GameClient implements AppModule {
     await this.startJavaProcess({
       mainClass: "com.ankamagames.dofusarena.client.DofusArenaClient",
       settings: this.currentSettings || undefined,
+      extraArgs: [
+        "-ONLY_ALLOWED_TEAM_TAB=1",
+        "-ONLY_ALLOWED_LADDER_TAB=ONE_VS_ONE,COACH",
+      ],
     });
   }
 
@@ -221,14 +225,7 @@ export class GameClient implements AppModule {
       );
     }
 
-    javaArgs.push(
-      "-cp",
-      fullClasspath,
-      mainClass,
-      "-only_allowed_team_tab=1",
-      "-only_allowed_ladder_tab=ONE_VS_ONE,COACH",
-      ...extraArgs
-    );
+    javaArgs.push("-cp", fullClasspath, mainClass, ...extraArgs);
 
     switch (process.platform) {
       case "win32":
