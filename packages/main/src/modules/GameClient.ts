@@ -2,7 +2,7 @@ import { ipcMain, app } from "electron";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import { chmodSync } from "fs";
-import { stat, chmod, readdir } from "fs/promises";
+import { stat, chmod, readdir, readFile, appendFile } from "fs/promises";
 import { exec } from "child_process";
 import log from "electron-log";
 import { GameUpdater, GameSettings, ReplayFile } from "./GameUpdater.js";
@@ -65,6 +65,11 @@ export class GameClient implements AppModule {
 
     if (gameStatus.error) {
       throw new Error(`Cannot launch game: ${gameStatus.error}`);
+    }
+
+    // Check if dev mode is enabled and update config.properties if needed
+    if (this.currentSettings?.devModeEnabled) {
+      await this.ensureLocalhostProxy();
     }
 
     await this.startJavaProcess({
@@ -144,6 +149,39 @@ export class GameClient implements AppModule {
   }
 
   // ---------------- Private helpers ----------------
+  private async ensureLocalhostProxy(): Promise<void> {
+    const gameConfigPath = join(
+      this.gameClientPath,
+      "game",
+      "config.properties"
+    );
+
+    try {
+      // Check if config.properties exists
+      if (!existsSync(gameConfigPath)) {
+        return;
+      }
+
+      // Read the file contents
+      const configContent = await readFile(gameConfigPath, "utf-8");
+
+      // Check if it already contains "localhost"
+      if (configContent.includes("localhost")) {
+        return;
+      }
+
+      // Append the dev mode proxy settings
+      log.info("Adding dev mode proxy settings to config.properties");
+      await appendFile(
+        gameConfigPath,
+        "\nproxyGroup_2=Localhost\nproxyAddresses_2=localhost:5555\n"
+      );
+    } catch (error) {
+      log.error("Failed to update config.properties for dev mode:", error);
+      // Don't throw error as this shouldn't prevent game launch
+    }
+  }
+
   private async startJavaProcess(options: {
     mainClass: string;
     settings?: GameSettings;
