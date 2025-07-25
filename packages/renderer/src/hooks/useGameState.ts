@@ -355,14 +355,10 @@ export function useGameState(): [GameState, GameStateActions] {
     };
 
     const handleStatusChanged = () => {
-      console.warn(
-        "🔔 handleStatusChanged: Received status-changed event, calling refreshStatus"
-      );
       refreshStatus();
     };
 
     // Register event listeners
-    console.warn("🎧 useGameState: Registering IPC event listeners");
     ipcEvents.on("gameUpdater:download-started", handleDownloadStarted);
     ipcEvents.on("gameUpdater:download-progress", handleDownloadProgress);
     ipcEvents.on("gameUpdater:download-complete", handleDownloadComplete);
@@ -371,7 +367,6 @@ export function useGameState(): [GameState, GameStateActions] {
     ipcEvents.on("gameUpdater:status-changed", handleStatusChanged);
 
     return () => {
-      console.warn("🎧 useGameState: Cleaning up IPC event listeners");
       ipcEvents.off("gameUpdater:download-started", handleDownloadStarted);
       ipcEvents.off("gameUpdater:download-progress", handleDownloadProgress);
       ipcEvents.off("gameUpdater:download-complete", handleDownloadComplete);
@@ -385,9 +380,6 @@ export function useGameState(): [GameState, GameStateActions] {
   useEffect(() => {
     if (!isInitialized.current) {
       isInitialized.current = true;
-      console.warn(
-        "🚀 useGameState: First initialization, calling refreshStatus"
-      );
       refreshStatus();
 
       // Set up periodic status checks (every 10 minutes when idle)
