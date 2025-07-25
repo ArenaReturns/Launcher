@@ -221,7 +221,14 @@ export class GameClient implements AppModule {
       );
     }
 
-    javaArgs.push("-cp", fullClasspath, mainClass, ...extraArgs);
+    javaArgs.push(
+      "-cp",
+      fullClasspath,
+      mainClass,
+      "-only_allowed_team_tab=1",
+      "-only_allowed_ladder_tab=ONE_VS_ONE,COACH",
+      ...extraArgs
+    );
 
     switch (process.platform) {
       case "win32":
