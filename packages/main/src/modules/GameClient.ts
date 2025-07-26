@@ -69,7 +69,7 @@ export class GameClient implements AppModule {
 
     // Check if dev mode is enabled and update config.properties if needed
     if (this.currentSettings?.devModeEnabled) {
-      await this.ensureLocalhostProxy();
+      await this.ensureDevModeProxy();
     }
 
     await this.startJavaProcess({
@@ -149,7 +149,7 @@ export class GameClient implements AppModule {
   }
 
   // ---------------- Private helpers ----------------
-  private async ensureLocalhostProxy(): Promise<void> {
+  private async ensureDevModeProxy(): Promise<void> {
     const gameConfigPath = join(
       this.gameClientPath,
       "game",
@@ -175,6 +175,10 @@ export class GameClient implements AppModule {
       await appendFile(
         gameConfigPath,
         "\nproxyGroup_2=Localhost\nproxyAddresses_2=localhost:5555\n"
+      );
+      await appendFile(
+        gameConfigPath,
+        "\nproxyGroup_3=Staging\nproxyAddresses_3=minuit-staging.arenareturns.com:6666\n"
       );
     } catch (error) {
       log.error("Failed to update config.properties for dev mode:", error);
