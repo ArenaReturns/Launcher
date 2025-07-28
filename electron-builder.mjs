@@ -42,6 +42,8 @@ export default /** @type import('electron-builder').Configuration */
       target: "dmg",
       arch: "universal",
     },
+    executableName: "arena-returns-launcher",
+    artifactName: "ArenaReturnsLauncher.${ext}",
   },
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
