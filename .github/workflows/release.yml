@@ -39,7 +39,7 @@ jobs:
 
       - name: Create GitHub Release
         run: |
-          # Find all release files from both Linux and Windows builds
+          # Find all release files from Linux, MacOS and Windows builds
           FILES=$(find dist/ -name "ArenaReturnsLauncher*" -o -name "latest*.yml" -o -name "arena-returns-launcher*" | tr '\n' ' ')
           echo "Found release files: $FILES"
           gh release create v${{inputs.app-version}} $FILES --repo ${{github.repository}}
