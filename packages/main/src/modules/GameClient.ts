@@ -216,7 +216,7 @@ export class GameClient implements AppModule {
         nativesPath = join(nativesDir, "win32", "x64");
         break;
       case "darwin":
-        nativesPath = join(nativesDir, "darwin", "x64");
+        nativesPath = join(nativesDir, "darwin", "universal");
         break;
       case "linux":
         nativesPath = join(nativesDir, "linux", "x64");
