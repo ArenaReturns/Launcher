@@ -225,10 +225,18 @@ export class GameClient implements AppModule {
         throw new Error(`Unsupported platform: ${process.platform}`);
     }
 
-    const javaExecutable =
-      process.platform === "win32"
-        ? join(jreDir, "bin", "java.exe")
-        : join(jreDir, "bin", "java");
+    let javaExecutable: string;
+    switch (process.platform) {
+      case "win32":
+        javaExecutable = join(jreDir, "bin", "java.exe");
+        break;
+      case "darwin":
+        javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
+        break;
+      default:
+        javaExecutable = join(jreDir, "bin", "java");
+        break;
+    }
 
     if (!existsSync(javaExecutable)) {
       throw new Error(`Java executable not found at ${javaExecutable}`);
@@ -278,6 +286,9 @@ export class GameClient implements AppModule {
       case "linux":
         await this.launchJavaProcessLinux(javaExecutable, javaArgs, gameDir);
         break;
+      case "darwin":
+        await this.launchJavaProcessDarwin(javaExecutable, javaArgs, gameDir);
+        break;
       default:
         throw new Error(`Unsupported platform: ${process.platform}`);
     }
@@ -292,7 +303,13 @@ export class GameClient implements AppModule {
   }
 
   private async ensureJrePermissions(jreDir: string): Promise<void> {
-    const binDir = join(jreDir, "bin");
+    let binDir: string;
+    if (process.platform === "darwin") {
+      binDir = join(jreDir, "Contents", "Home", "bin");
+    } else {
+      binDir = join(jreDir, "bin");
+    }
+
     if (!existsSync(binDir)) return;
     const binFiles = await readdir(binDir);
     for (const file of binFiles) {
@@ -332,6 +349,37 @@ export class GameClient implements AppModule {
   }
 
   private async launchJavaProcessLinux(
+    javaExecutable: string,
+    args: string[],
+    cwd: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        chmodSync(javaExecutable, 0o755);
+      } catch (error) {
+        log.warn(
+          `Failed to set permissions on Java executable ${javaExecutable}:`,
+          error
+        );
+      }
+      const child = exec(
+        `"${javaExecutable}" ${args.join(" ")}`,
+        { cwd },
+        (error) => {
+          if (error && !error.killed) {
+            log.error("Java process error:", error);
+          }
+        }
+      );
+      if (child.pid) {
+        resolve();
+      } else {
+        reject(new Error("Failed to start Java process"));
+      }
+    });
+  }
+
+  private async launchJavaProcessDarwin(
     javaExecutable: string,
     args: string[],
     cwd: string
