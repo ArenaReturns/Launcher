@@ -42,7 +42,7 @@ export default /** @type import('electron-builder').Configuration */
       target: "dmg",
       arch: "universal",
     },
-    executableName: "arena-returns-launcher",
+    executableName: "Arena Returns Launcher",
     artifactName: "ArenaReturnsLauncher.${ext}",
   },
   /**
