@@ -203,12 +203,22 @@ export class GameClient implements AppModule {
     if (!existsSync(nativesDir)) throw new Error("Natives directory not found");
 
     const libFiles = (await readdir(libDir)).filter((f) => f.endsWith(".jar"));
+    // FIXME: Gigahack since darwin relies on wine
     const classpath = libFiles
       .map((jar) => join(libDir, jar))
-      .join(process.platform === "win32" ? ";" : ":");
+      .join(
+        process.platform === "win32" || process.platform === "darwin"
+          ? ";"
+          : ":"
+      );
     const coreJarPath = join(gameDir, "core.jar");
+    // FIXME: Gigahack since darwin relies on wine
     const fullClasspath =
-      classpath + (process.platform === "win32" ? ";" : ":") + coreJarPath;
+      classpath +
+      (process.platform === "win32" || process.platform === "darwin"
+        ? ";"
+        : ":") +
+      coreJarPath;
 
     let nativesPath: string;
     switch (process.platform) {
@@ -216,7 +226,9 @@ export class GameClient implements AppModule {
         nativesPath = join(nativesDir, "win32", "x64");
         break;
       case "darwin":
-        nativesPath = join(nativesDir, "darwin", "universal");
+        nativesPath = join(nativesDir, "win32", "x64");
+        // FIXME: Native macos build not yet available
+        // nativesPath = join(nativesDir, "darwin", "universal");
         break;
       case "linux":
         nativesPath = join(nativesDir, "linux", "x64");
@@ -231,7 +243,9 @@ export class GameClient implements AppModule {
         javaExecutable = join(jreDir, "bin", "java.exe");
         break;
       case "darwin":
-        javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
+        javaExecutable = join(jreDir, "bin", "java.exe");
+        // FIXME: Native macos build not yet available
+        // javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
         break;
       default:
         javaExecutable = join(jreDir, "bin", "java");
@@ -263,7 +277,7 @@ export class GameClient implements AppModule {
       "-Dsun.awt.noerasebackground=true",
       "-Dsun.java2d.noddraw=true",
       "-Djogl.disable.openglarbcontext",
-      `-Djava.library.path=${nativesPath}`,
+      `-Djava.library.path="${nativesPath}"`,
     ];
 
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
@@ -275,7 +289,7 @@ export class GameClient implements AppModule {
       );
     }
 
-    javaArgs.push("-cp", fullClasspath, mainClass, ...extraArgs);
+    javaArgs.push("-cp", `"${fullClasspath}"`, mainClass, ...extraArgs);
 
     switch (process.platform) {
       case "win32":
@@ -303,7 +317,9 @@ export class GameClient implements AppModule {
   private async ensureJrePermissions(jreDir: string): Promise<void> {
     let binDir: string;
     if (process.platform === "darwin") {
-      binDir = join(jreDir, "Contents", "Home", "bin");
+      return;
+      // FIXME: Native macos build not yet available
+      // binDir = join(jreDir, "Contents", "Home", "bin");
     } else {
       binDir = join(jreDir, "bin");
     }
@@ -392,7 +408,7 @@ export class GameClient implements AppModule {
         );
       }
       const child = exec(
-        `"${javaExecutable}" ${args.join(" ")}`,
+        `wine "${javaExecutable}" ${args.join(" ")}`,
         { cwd },
         (error) => {
           if (error && !error.killed) {
