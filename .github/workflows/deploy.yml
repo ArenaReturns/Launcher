@@ -26,7 +26,7 @@ jobs:
       APP_VERSION: ${{ steps.APP_VERSION.outputs.APP_VERSION }}
       APP_FULL_VERSION: ${{ steps.APP_FULL_VERSION.outputs.APP_FULL_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: APP_VERSION
         run: echo "APP_VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
       - id: APP_FULL_VERSION
