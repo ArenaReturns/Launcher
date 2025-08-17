@@ -77,7 +77,7 @@ export class GameClient implements AppModule {
       settings: this.currentSettings || undefined,
       extraArgs: [
         "-ONLY_ALLOWED_TEAM_TAB=1",
-        "-ONLY_ALLOWED_LADDER_TAB=ONE_VS_ONE,COACH",
+        "-ONLY_ALLOWED_LADDER_TAB=ONE_VS_ONE",
       ],
     });
   }
