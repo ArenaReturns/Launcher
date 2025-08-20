@@ -36,7 +36,8 @@ export interface VersionManifest {
   version: string;
   base: FileManifest[];
   windows: FileManifest[];
-  macos: FileManifest[];
+  "macos-intel": FileManifest[];
+  "macos-arm": FileManifest[];
   linux: FileManifest[];
 }
 
@@ -385,7 +386,14 @@ export class GameUpdater implements AppModule {
         files.push(...manifest.windows);
         break;
       case "darwin":
-        files.push(...manifest.macos);
+        // FIXME: Gigahack since darwin relies on wine
+        files.push(...manifest.windows);
+        break;
+        /*if (process.arch === "x64") {
+          files.push(...manifest["macos-intel"]);
+        } else {
+          files.push(...manifest["macos-arm"]);
+        }*/
         break;
       case "linux":
         files.push(...manifest.linux);

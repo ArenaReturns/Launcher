@@ -47,6 +47,7 @@ jobs:
         os:
           - windows-latest
           - ubuntu-latest
+          - macos-15
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -76,3 +77,4 @@ jobs:
             dist
             !dist/win-unpacked
             !dist/linux-unpacked
+            !dist/mac-universal

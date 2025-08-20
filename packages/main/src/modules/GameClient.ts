@@ -203,12 +203,22 @@ export class GameClient implements AppModule {
     if (!existsSync(nativesDir)) throw new Error("Natives directory not found");
 
     const libFiles = (await readdir(libDir)).filter((f) => f.endsWith(".jar"));
+    // FIXME: Gigahack since darwin relies on wine
     const classpath = libFiles
       .map((jar) => join(libDir, jar))
-      .join(process.platform === "win32" ? ";" : ":");
+      .join(
+        process.platform === "win32" || process.platform === "darwin"
+          ? ";"
+          : ":"
+      );
     const coreJarPath = join(gameDir, "core.jar");
+    // FIXME: Gigahack since darwin relies on wine
     const fullClasspath =
-      classpath + (process.platform === "win32" ? ";" : ":") + coreJarPath;
+      classpath +
+      (process.platform === "win32" || process.platform === "darwin"
+        ? ";"
+        : ":") +
+      coreJarPath;
 
     let nativesPath: string;
     switch (process.platform) {
@@ -216,7 +226,9 @@ export class GameClient implements AppModule {
         nativesPath = join(nativesDir, "win32", "x64");
         break;
       case "darwin":
-        nativesPath = join(nativesDir, "darwin", "x64");
+        nativesPath = join(nativesDir, "win32", "x64");
+        // FIXME: Native macos build not yet available
+        // nativesPath = join(nativesDir, "darwin", "universal");
         break;
       case "linux":
         nativesPath = join(nativesDir, "linux", "x64");
@@ -225,10 +237,20 @@ export class GameClient implements AppModule {
         throw new Error(`Unsupported platform: ${process.platform}`);
     }
 
-    const javaExecutable =
-      process.platform === "win32"
-        ? join(jreDir, "bin", "java.exe")
-        : join(jreDir, "bin", "java");
+    let javaExecutable: string;
+    switch (process.platform) {
+      case "win32":
+        javaExecutable = join(jreDir, "bin", "java.exe");
+        break;
+      case "darwin":
+        javaExecutable = join(jreDir, "bin", "java.exe");
+        // FIXME: Native macos build not yet available
+        // javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
+        break;
+      default:
+        javaExecutable = join(jreDir, "bin", "java");
+        break;
+    }
 
     if (!existsSync(javaExecutable)) {
       throw new Error(`Java executable not found at ${javaExecutable}`);
@@ -257,7 +279,7 @@ export class GameClient implements AppModule {
       "-Dsun.java2d.dpiaware=false",
       "-Dsun.java2d.uiScale=1.0",
       "-Djogl.disable.openglarbcontext",
-      `-Djava.library.path=${nativesPath}`,
+      `-Djava.library.path="${nativesPath}"`,
     ];
 
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
@@ -269,7 +291,7 @@ export class GameClient implements AppModule {
       );
     }
 
-    javaArgs.push("-cp", fullClasspath, mainClass, ...extraArgs);
+    javaArgs.push("-cp", `"${fullClasspath}"`, mainClass, ...extraArgs);
 
     switch (process.platform) {
       case "win32":
@@ -277,6 +299,9 @@ export class GameClient implements AppModule {
         break;
       case "linux":
         await this.launchJavaProcessLinux(javaExecutable, javaArgs, gameDir);
+        break;
+      case "darwin":
+        await this.launchJavaProcessDarwin(javaExecutable, javaArgs, gameDir);
         break;
       default:
         throw new Error(`Unsupported platform: ${process.platform}`);
@@ -292,7 +317,15 @@ export class GameClient implements AppModule {
   }
 
   private async ensureJrePermissions(jreDir: string): Promise<void> {
-    const binDir = join(jreDir, "bin");
+    let binDir: string;
+    if (process.platform === "darwin") {
+      return;
+      // FIXME: Native macos build not yet available
+      // binDir = join(jreDir, "Contents", "Home", "bin");
+    } else {
+      binDir = join(jreDir, "bin");
+    }
+
     if (!existsSync(binDir)) return;
     const binFiles = await readdir(binDir);
     for (const file of binFiles) {
@@ -347,6 +380,37 @@ export class GameClient implements AppModule {
       }
       const child = exec(
         `"${javaExecutable}" ${args.join(" ")}`,
+        { cwd },
+        (error) => {
+          if (error && !error.killed) {
+            log.error("Java process error:", error);
+          }
+        }
+      );
+      if (child.pid) {
+        resolve();
+      } else {
+        reject(new Error("Failed to start Java process"));
+      }
+    });
+  }
+
+  private async launchJavaProcessDarwin(
+    javaExecutable: string,
+    args: string[],
+    cwd: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        chmodSync(javaExecutable, 0o755);
+      } catch (error) {
+        log.warn(
+          `Failed to set permissions on Java executable ${javaExecutable}:`,
+          error
+        );
+      }
+      const child = exec(
+        `wine "${javaExecutable}" ${args.join(" ")}`,
         { cwd },
         (error) => {
           if (error && !error.killed) {
