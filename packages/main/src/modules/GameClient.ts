@@ -254,6 +254,8 @@ export class GameClient implements AppModule {
       "-Djava.net.preferIPv4Stack=true",
       "-Dsun.awt.noerasebackground=true",
       "-Dsun.java2d.noddraw=true",
+      "-Dsun.java2d.dpiaware=false",
+      "-Dsun.java2d.uiScale=1.0",
       "-Djogl.disable.openglarbcontext",
       `-Djava.library.path=${nativesPath}`,
     ];
