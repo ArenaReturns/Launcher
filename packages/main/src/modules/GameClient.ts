@@ -409,9 +409,18 @@ export class GameClient implements AppModule {
           error
         );
       }
+
+      // Ensure we have the full system PATH for finding wine
+      const env = { ...process.env };
+      if (!env.PATH?.includes("/opt/homebrew/bin")) {
+        env.PATH = `${
+          env.PATH || ""
+        }:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`;
+      }
+
       const child = exec(
         `wine "${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
+        { cwd, env },
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
