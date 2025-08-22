@@ -1,7 +1,7 @@
 {
   "name": "arena-returns-launcher",
   "description": "Le launcher officiel d'Arena Returns - Dofus Arena",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "private": true,
   "type": "module",
   "author": {
