@@ -240,7 +240,7 @@ export class GameClient implements AppModule {
     let javaExecutable: string;
     switch (process.platform) {
       case "win32":
-        javaExecutable = join(jreDir, "bin", "java.exe");
+        javaExecutable = join(jreDir, "bin", "javaw.exe");
         break;
       case "darwin":
         javaExecutable = join(jreDir, "bin", "java.exe");
