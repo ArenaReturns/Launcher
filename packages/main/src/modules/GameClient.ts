@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import { chmodSync } from "fs";
 import { stat, chmod, readdir, readFile, appendFile } from "fs/promises";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import log from "electron-log";
 import { GameUpdater, GameSettings, ReplayFile } from "./GameUpdater.js";
 import type { AppModule } from "../AppModule.js";
@@ -347,20 +347,24 @@ export class GameClient implements AppModule {
     cwd: string
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = exec(
-        `"${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
-        (error) => {
-          if (error && !error.killed) {
-            log.error("Java process error:", error);
-          }
-        }
-      );
-      if (child.pid) {
+      const child = spawn(javaExecutable, args, {
+        cwd,
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true, // Hide the console window on Windows
+      });
+
+      child.on("error", (error) => {
+        log.error("Failed to start Java process:", error);
+        reject(new Error(`Failed to start Java process: ${error.message}`));
+      });
+
+      child.on("spawn", () => {
+        log.info("Java process started successfully with PID:", child.pid);
+        // Unref the child process so the parent can exit without waiting
+        child.unref();
         resolve();
-      } else {
-        reject(new Error("Failed to start Java process"));
-      }
+      });
     });
   }
 
