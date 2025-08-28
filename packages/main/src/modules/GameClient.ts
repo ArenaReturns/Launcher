@@ -347,11 +347,16 @@ export class GameClient implements AppModule {
     cwd: string
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      log.info("Launching Java process with executable:", javaExecutable);
+      log.info("Java arguments:", args);
+      log.info("Working directory:", cwd);
+
       const child = spawn(javaExecutable, args, {
         cwd,
         detached: true,
         stdio: "ignore",
         windowsHide: true, // Hide the console window on Windows
+        shell: true, // Enable shell parsing for proper quote handling
       });
 
       child.on("error", (error) => {
