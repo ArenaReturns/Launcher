@@ -63,7 +63,7 @@ jobs:
         env:
           VITE_DISTRIBUTION_CHANNEL: ${{inputs.distribution-channel}}
 
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v3
         if: inputs.upload-artifacts
         with:
           subject-path: ${{ matrix.os == 'windows-latest' && 'dist/nsis-web/ArenaReturnsLauncher*, dist/nsis-web/latest*.yml, dist/nsis-web/arena-returns-launcher*' || 'dist/ArenaReturnsLauncher*, dist/latest*.yml' }}
