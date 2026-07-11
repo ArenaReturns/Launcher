@@ -21,6 +21,7 @@ export class SettingsManager {
     return {
       gameRamAllocation: 2,
       devModeEnabled: false,
+      devGameArgs: "ONLY_ALLOWED_TEAM_TAB=1 ONLY_ALLOWED_LADDER_TAB=ONE_VS_ONE",
       devExtraJavaArgs: "",
       devForceVersion: "",
       devCdnEnvironment: "production",

@@ -1,13 +1,12 @@
-import { ipcMain, app } from "electron";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
-import { chmodSync } from "fs";
-import { stat, chmod, readdir, readFile, appendFile } from "fs/promises";
-import { exec } from "child_process";
+import {app, ipcMain} from "electron";
+import {join} from "path";
+import {chmodSync, existsSync, mkdirSync} from "fs";
+import {appendFile, chmod, readdir, readFile, stat} from "fs/promises";
+import {exec} from "child_process";
 import log from "electron-log";
-import { GameUpdater, GameSettings, ReplayFile } from "./GameUpdater.js";
-import type { AppModule } from "../AppModule.js";
-import type { ModuleContext } from "../ModuleContext.js";
+import {GameSettings, GameUpdater, ReplayFile} from "./GameUpdater.js";
+import type {AppModule} from "../AppModule.js";
+import type {ModuleContext} from "../ModuleContext.js";
 
 export class GameClient implements AppModule {
   private gameUpdater: GameUpdater | null = null;
@@ -36,6 +35,9 @@ export class GameClient implements AppModule {
     ipcMain.handle("gameClient:listReplays", () => this.listReplays());
     ipcMain.handle("gameClient:launchReplayOffline", (_e, path) =>
       this.launchReplayOffline(path)
+    );
+    ipcMain.handle("gameClient:getGameArgumentsDescriptor", () =>
+      this.getGameArgumentsDescriptor()
     );
   }
 
@@ -75,18 +77,15 @@ export class GameClient implements AppModule {
     await this.startJavaProcess({
       mainClass: "com.ankamagames.dofusarena.client.DofusArenaClient",
       settings: this.currentSettings || undefined,
-      extraArgs: [
-        "-ONLY_ALLOWED_TEAM_TAB=1",
-        "-ONLY_ALLOWED_LADDER_TAB=ONE_VS_ONE",
-      ],
+      extraArgs: this.currentSettings?.devExtraJavaArgs.split(" ").map(arg => `-${arg}`) ?? [],
     });
   }
 
   async openReplaysFolder(): Promise<void> {
-    const { shell } = await import("electron");
+    const {shell} = await import("electron");
     const replaysPath = join(this.gameClientPath, "game", "replays");
 
-    mkdirSync(replaysPath, { recursive: true });
+    mkdirSync(replaysPath, {recursive: true});
 
     try {
       await shell.openPath(replaysPath);
@@ -101,8 +100,8 @@ export class GameClient implements AppModule {
 
   async listReplays(): Promise<ReplayFile[]> {
     const replaysPath = join(this.gameClientPath, "game", "replays");
-    const { readdir } = await import("fs/promises");
-    mkdirSync(replaysPath, { recursive: true });
+    const {readdir} = await import("fs/promises");
+    mkdirSync(replaysPath, {recursive: true});
 
     try {
       const files = await readdir(replaysPath);
@@ -191,7 +190,7 @@ export class GameClient implements AppModule {
     settings?: GameSettings;
     extraArgs?: string[];
   }): Promise<void> {
-    const { mainClass, settings, extraArgs = [] } = options;
+    const {mainClass, settings, extraArgs = []} = options;
     const gameDir = join(this.gameClientPath, "game");
     const libDir = join(this.gameClientPath, "lib");
     const jreDir = join(this.gameClientPath, "jre");
@@ -349,7 +348,7 @@ export class GameClient implements AppModule {
     return new Promise((resolve, reject) => {
       const child = exec(
         `"${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
+        {cwd},
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
@@ -380,7 +379,7 @@ export class GameClient implements AppModule {
       }
       const child = exec(
         `"${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
+        {cwd},
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
@@ -411,7 +410,7 @@ export class GameClient implements AppModule {
       }
 
       // Ensure we have the full system PATH for finding wine
-      const env = { ...process.env };
+      const env = {...process.env};
       if (!env.PATH?.includes("/opt/homebrew/bin")) {
         env.PATH = `${
           env.PATH || ""
@@ -420,7 +419,7 @@ export class GameClient implements AppModule {
 
       const child = exec(
         `wine "${javaExecutable}" ${args.join(" ")}`,
-        { cwd, env },
+        {cwd, env},
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
@@ -433,6 +432,22 @@ export class GameClient implements AppModule {
         reject(new Error("Failed to start Java process"));
       }
     });
+  }
+
+  async getGameArgumentsDescriptor(): Promise<any> {
+    try {
+      let schemaPath = join(this.gameClientPath, "game", "arguments.json");
+      if (existsSync(schemaPath)) {
+        log.info("Loading arguments descriptor from ", schemaPath)
+        const content = await readFile(schemaPath, "utf-8");
+        return JSON.parse(content);
+      }
+      log.info("Arguments descriptor not found")
+      return null;
+    } catch (error) {
+      log.error("Failed to load arguments.json:", error);
+      return null;
+    }
   }
 
   private parseReplayFilename(filename: string, fullPath: string): ReplayFile {

@@ -21,6 +21,7 @@ interface GameSettings {
   gameRamAllocation: number;
   devModeEnabled: boolean;
   devExtraJavaArgs: string;
+  devGameArgs: string;
   devForceVersion: string;
   devCdnEnvironment: "production" | "staging";
 }
