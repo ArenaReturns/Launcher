@@ -67,7 +67,7 @@ export class SettingsManager {
       await writeFile(
         this.settingsPath,
         JSON.stringify(settings, null, 2),
-        "utf-8"
+        "utf-8",
       );
 
       log.info("Settings saved successfully:", settings);
@@ -82,7 +82,7 @@ export class SettingsManager {
       throw new Error(
         `Failed to save settings: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -120,7 +120,7 @@ export class SettingsManager {
    */
   private notifySettingsChange(settings: GameSettings): void {
     log.info(
-      `Notifying ${this.changeCallbacks.size} modules of settings change`
+      `Notifying ${this.changeCallbacks.size} modules of settings change`,
     );
 
     for (const callback of this.changeCallbacks) {

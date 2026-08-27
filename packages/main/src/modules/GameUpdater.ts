@@ -119,12 +119,12 @@ export class GameUpdater implements AppModule {
     ipcMain.handle("gameUpdater:checkForUpdates", () => this.checkForUpdates());
     ipcMain.handle("gameUpdater:startDownload", () => this.startDownload());
     ipcMain.handle("gameUpdater:getDownloadProgress", () =>
-      this.getDownloadProgress()
+      this.getDownloadProgress(),
     );
     ipcMain.handle("gameUpdater:cancelDownload", () => this.cancelDownload());
     ipcMain.handle("gameUpdater:repairClient", () => this.repairClient());
     ipcMain.handle("gameUpdater:openGameDirectory", () =>
-      this.openGameDirectory()
+      this.openGameDirectory(),
     );
   }
 
@@ -173,7 +173,7 @@ export class GameUpdater implements AppModule {
     if (previousSettings) {
       if (previousSettings.devCdnEnvironment !== settings.devCdnEnvironment) {
         log.debug(
-          `CDN environment changed from ${previousSettings.devCdnEnvironment} to ${settings.devCdnEnvironment}, notifying UI to refresh status`
+          `CDN environment changed from ${previousSettings.devCdnEnvironment} to ${settings.devCdnEnvironment}, notifying UI to refresh status`,
         );
 
         this.notifyRenderer("status-changed", {});
@@ -226,7 +226,7 @@ export class GameUpdater implements AppModule {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch version info: ${response.status} ${response.statusText}`
+          `Failed to fetch version info: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -251,7 +251,7 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to update local version: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -277,12 +277,12 @@ export class GameUpdater implements AppModule {
 
       const remoteVersion = await this.getRemoteVersion();
       const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`
+        `${this.cdnUrl}/versions/${remoteVersion}.json`,
       );
 
       if (!manifestResponse.ok) {
         throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`
+          `Failed to fetch version manifest: ${manifestResponse.status}`,
         );
       }
 
@@ -335,12 +335,12 @@ export class GameUpdater implements AppModule {
 
       const remoteVersion = await this.getRemoteVersion();
       const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`
+        `${this.cdnUrl}/versions/${remoteVersion}.json`,
       );
 
       if (!manifestResponse.ok) {
         throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`
+          `Failed to fetch version manifest: ${manifestResponse.status}`,
         );
       }
 
@@ -373,7 +373,7 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to open game directory: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -406,7 +406,7 @@ export class GameUpdater implements AppModule {
 
   private async checkFiles(
     files: FileManifest[],
-    forceCheck = false
+    forceCheck = false,
   ): Promise<void> {
     if (!existsSync(this.gameClientPath)) {
       mkdirSync(this.gameClientPath, { recursive: true });
@@ -492,7 +492,7 @@ export class GameUpdater implements AppModule {
     const downloadPromises = files.map((file) =>
       queue.add(() => this.downloadAndSaveFile(file), {
         priority: 1,
-      })
+      }),
     );
 
     try {
@@ -536,7 +536,7 @@ export class GameUpdater implements AppModule {
       const response = await fetch(fileUrl);
       if (!response.ok) {
         throw new Error(
-          `Failed to download file: ${response.status} ${response.statusText}`
+          `Failed to download file: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -549,7 +549,7 @@ export class GameUpdater implements AppModule {
 
       const dir = join(
         this.gameClientPath,
-        file.path.split("/").slice(0, -1).join("/")
+        file.path.split("/").slice(0, -1).join("/"),
       );
       if (dir && !existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -570,7 +570,7 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to download file ${file.path}: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -653,7 +653,7 @@ export class GameUpdater implements AppModule {
   private async getAllLocalFiles(
     dirPath: string = this.gameClientPath,
     relativeTo: string = this.gameClientPath,
-    files: string[] = []
+    files: string[] = [],
   ): Promise<string[]> {
     try {
       const entries = await readdir(dirPath);

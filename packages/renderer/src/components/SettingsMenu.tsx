@@ -16,7 +16,11 @@ import {
   Code,
   AlertTriangle,
 } from "lucide-react";
-import { SimpleSlider, SimpleSelect, SimpleSwitch } from "./common/FormControls";
+import {
+  SimpleSlider,
+  SimpleSelect,
+  SimpleSwitch,
+} from "./common/FormControls";
 import type { SettingsState } from "@/types";
 import { gameClient, gameUpdater, system } from "@app/preload";
 import { useGameStateContext } from "@/contexts/GameStateContext";
@@ -28,7 +32,9 @@ interface ArgumentDescriptorItem {
   type: "boolean" | "string" | "number";
 }
 
-const parseGameArgs = (argsString: string): Record<string, string | boolean> => {
+const parseGameArgs = (
+  argsString: string,
+): Record<string, string | boolean> => {
   const parsed: Record<string, string | boolean> = {};
   if (!argsString) return parsed;
   argsString.split(/\s+/).forEach((part) => {
@@ -47,7 +53,7 @@ const updateDescriptorArg = (
   currentArgsStr: string,
   descriptor: ArgumentDescriptorItem[],
   keyToUpdate: string,
-  newValue: string | boolean
+  newValue: string | boolean,
 ): string => {
   const parsed = parseGameArgs(currentArgsStr);
   const descriptorKeys = new Set(descriptor.map((s) => s.key));
@@ -88,7 +94,7 @@ const updateDescriptorArg = (
 const updateCustomArgs = (
   currentArgsStr: string,
   descriptor: ArgumentDescriptorItem[],
-  newCustomStr: string
+  newCustomStr: string,
 ): string => {
   const parsed = parseGameArgs(currentArgsStr);
   const descriptorKeys = new Set(descriptor.map((s) => s.key));
@@ -112,7 +118,10 @@ const updateCustomArgs = (
   return finalParts.join(" ");
 };
 
-const getCustomArgsString = (currentArgsStr: string, descriptor: ArgumentDescriptorItem[]): string => {
+const getCustomArgsString = (
+  currentArgsStr: string,
+  descriptor: ArgumentDescriptorItem[],
+): string => {
   const parsed = parseGameArgs(currentArgsStr);
   const descriptorKeys = new Set(descriptor.map((s) => s.key));
   const customParts: string[] = [];
@@ -152,7 +161,9 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   // Local settings state for editing (doesn't affect main UI)
   const [localSettings, setLocalSettings] = useState<SettingsState>(settings);
 
-  const [ArgumentsDescriptor, setArgumentsDescriptor] = useState<ArgumentDescriptorItem[] | null>(null);
+  const [ArgumentsDescriptor, setArgumentsDescriptor] = useState<
+    ArgumentDescriptorItem[] | null
+  >(null);
   const [descriptorLoading, setDescriptorLoading] = useState(false);
 
   // Fetch arguments.json descriptor when developer mode is enabled and settings menu is open
@@ -166,7 +177,15 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       setDescriptorLoading(true);
       try {
         const descriptor = await gameClient.getGameArgumentsDescriptor();
-        if (Array.isArray(descriptor) && descriptor.every((item: any) => item && typeof item.key === "string" && typeof item.type === "string")) {
+        if (
+          Array.isArray(descriptor) &&
+          descriptor.every(
+            (item: any) =>
+              item &&
+              typeof item.key === "string" &&
+              typeof item.type === "string",
+          )
+        ) {
           setArgumentsDescriptor(descriptor as ArgumentDescriptorItem[]);
         } else {
           setArgumentsDescriptor(null);
@@ -405,7 +424,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     onChange={(value) =>
                       updateSetting(
                         "devCdnEnvironment",
-                        value as "production" | "staging"
+                        value as "production" | "staging",
                       )
                     }
                     options={[
@@ -460,31 +479,44 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 p-4 rounded-lg border border-white/5">
                         {ArgumentsDescriptor.map((item) => {
-                          const parsedArgs = parseGameArgs(localSettings.devGameArgs);
+                          const parsedArgs = parseGameArgs(
+                            localSettings.devGameArgs,
+                          );
                           const currentValue = parsedArgs[item.key];
 
                           return (
-                            <div key={item.key} className="flex flex-col justify-between p-2 bg-white/5 rounded border border-white/10">
+                            <div
+                              key={item.key}
+                              className="flex flex-col justify-between p-2 bg-white/5 rounded border border-white/10"
+                            >
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-white font-medium text-sm">{item.key}</span>
+                                <span className="text-white font-medium text-sm">
+                                  {item.key}
+                                </span>
                                 {item.type === "boolean" ? (
                                   <SimpleSwitch
-                                    checked={currentValue === true || currentValue === "true"}
+                                    checked={
+                                      currentValue === true ||
+                                      currentValue === "true"
+                                    }
                                     onChange={(checked) => {
                                       const updated = updateDescriptorArg(
                                         localSettings.devGameArgs,
                                         ArgumentsDescriptor,
                                         item.key,
-                                        checked
+                                        checked,
                                       );
                                       updateSetting("devGameArgs", updated);
                                     }}
                                   />
                                 ) : (
                                   <input
-                                    type={item.type === "number" ? "number" : "text"}
+                                    type={
+                                      item.type === "number" ? "number" : "text"
+                                    }
                                     value={
-                                      currentValue !== undefined && currentValue !== true
+                                      currentValue !== undefined &&
+                                      currentValue !== true
                                         ? String(currentValue)
                                         : ""
                                     }
@@ -493,7 +525,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                                         localSettings.devGameArgs,
                                         ArgumentsDescriptor,
                                         item.key,
-                                        e.target.value
+                                        e.target.value,
                                       );
                                       updateSetting("devGameArgs", updated);
                                     }}
@@ -501,7 +533,9 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                                   />
                                 )}
                               </div>
-                              <span className="text-white/50 text-xs">{item.description}</span>
+                              <span className="text-white/50 text-xs">
+                                {item.description}
+                              </span>
                             </div>
                           );
                         })}
@@ -512,12 +546,15 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                           Autres arguments du jeu
                         </label>
                         <textarea
-                          value={getCustomArgsString(localSettings.devGameArgs, ArgumentsDescriptor)}
+                          value={getCustomArgsString(
+                            localSettings.devGameArgs,
+                            ArgumentsDescriptor,
+                          )}
                           onChange={(e) => {
                             const updated = updateCustomArgs(
                               localSettings.devGameArgs,
                               ArgumentsDescriptor,
-                              e.target.value
+                              e.target.value,
                             );
                             updateSetting("devGameArgs", updated);
                           }}
@@ -525,7 +562,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                           placeholder="ex: CUSTOM_ARG=value"
                         />
                         <p className="text-white/60 text-xs mt-1">
-                          Arguments personnalisés non inclus dans le fichier de configuration.
+                          Arguments personnalisés non inclus dans le fichier de
+                          configuration.
                         </p>
                       </div>
                     </div>

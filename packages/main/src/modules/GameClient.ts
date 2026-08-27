@@ -1,12 +1,12 @@
-import {app, ipcMain} from "electron";
-import {join} from "path";
-import {chmodSync, existsSync, mkdirSync} from "fs";
-import {appendFile, chmod, readdir, readFile, stat} from "fs/promises";
-import {exec} from "child_process";
+import { app, ipcMain } from "electron";
+import { join } from "path";
+import { chmodSync, existsSync, mkdirSync } from "fs";
+import { appendFile, chmod, readdir, readFile, stat } from "fs/promises";
+import { exec } from "child_process";
 import log from "electron-log";
-import {GameSettings, GameUpdater, ReplayFile} from "./GameUpdater.js";
-import type {AppModule} from "../AppModule.js";
-import type {ModuleContext} from "../ModuleContext.js";
+import { GameSettings, GameUpdater, ReplayFile } from "./GameUpdater.js";
+import type { AppModule } from "../AppModule.js";
+import type { ModuleContext } from "../ModuleContext.js";
 
 export class GameClient implements AppModule {
   private gameUpdater: GameUpdater | null = null;
@@ -30,14 +30,14 @@ export class GameClient implements AppModule {
     // Register GameClient-specific IPC handlers
     ipcMain.handle("gameClient:launchGame", () => this.launchGame());
     ipcMain.handle("gameClient:openReplaysFolder", () =>
-      this.openReplaysFolder()
+      this.openReplaysFolder(),
     );
     ipcMain.handle("gameClient:listReplays", () => this.listReplays());
     ipcMain.handle("gameClient:launchReplayOffline", (_e, path) =>
-      this.launchReplayOffline(path)
+      this.launchReplayOffline(path),
     );
     ipcMain.handle("gameClient:getGameArgumentsDescriptor", () =>
-      this.getGameArgumentsDescriptor()
+      this.getGameArgumentsDescriptor(),
     );
   }
 
@@ -77,15 +77,18 @@ export class GameClient implements AppModule {
     await this.startJavaProcess({
       mainClass: "com.ankamagames.dofusarena.client.DofusArenaClient",
       settings: this.currentSettings || undefined,
-      extraArgs: this.currentSettings?.devExtraJavaArgs.split(" ").map(arg => `-${arg}`) ?? [],
+      extraArgs:
+        this.currentSettings?.devExtraJavaArgs
+          .split(" ")
+          .map((arg) => `-${arg}`) ?? [],
     });
   }
 
   async openReplaysFolder(): Promise<void> {
-    const {shell} = await import("electron");
+    const { shell } = await import("electron");
     const replaysPath = join(this.gameClientPath, "game", "replays");
 
-    mkdirSync(replaysPath, {recursive: true});
+    mkdirSync(replaysPath, { recursive: true });
 
     try {
       await shell.openPath(replaysPath);
@@ -93,15 +96,15 @@ export class GameClient implements AppModule {
       throw new Error(
         `Failed to open replays folder: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
 
   async listReplays(): Promise<ReplayFile[]> {
     const replaysPath = join(this.gameClientPath, "game", "replays");
-    const {readdir} = await import("fs/promises");
-    mkdirSync(replaysPath, {recursive: true});
+    const { readdir } = await import("fs/promises");
+    mkdirSync(replaysPath, { recursive: true });
 
     try {
       const files = await readdir(replaysPath);
@@ -152,7 +155,7 @@ export class GameClient implements AppModule {
     const gameConfigPath = join(
       this.gameClientPath,
       "game",
-      "config.properties"
+      "config.properties",
     );
 
     try {
@@ -173,11 +176,11 @@ export class GameClient implements AppModule {
       log.info("Adding dev mode proxy settings to config.properties");
       await appendFile(
         gameConfigPath,
-        "\nproxyGroup_2=Localhost\nproxyAddresses_2=localhost:5555\n"
+        "\nproxyGroup_2=Localhost\nproxyAddresses_2=localhost:5555\n",
       );
       await appendFile(
         gameConfigPath,
-        "\nproxyGroup_3=Staging\nproxyAddresses_3=minuit-staging.arenareturns.com:6666\n"
+        "\nproxyGroup_3=Staging\nproxyAddresses_3=minuit-staging.arenareturns.com:6666\n",
       );
     } catch (error) {
       log.error("Failed to update config.properties for dev mode:", error);
@@ -190,7 +193,7 @@ export class GameClient implements AppModule {
     settings?: GameSettings;
     extraArgs?: string[];
   }): Promise<void> {
-    const {mainClass, settings, extraArgs = []} = options;
+    const { mainClass, settings, extraArgs = [] } = options;
     const gameDir = join(this.gameClientPath, "game");
     const libDir = join(this.gameClientPath, "lib");
     const jreDir = join(this.gameClientPath, "jre");
@@ -208,7 +211,7 @@ export class GameClient implements AppModule {
       .join(
         process.platform === "win32" || process.platform === "darwin"
           ? ";"
-          : ":"
+          : ":",
       );
     const coreJarPath = join(gameDir, "core.jar");
     // FIXME: Gigahack since darwin relies on wine
@@ -286,7 +289,7 @@ export class GameClient implements AppModule {
         ...settings.devExtraJavaArgs
           .split(" ")
           .map((arg) => arg.trim())
-          .filter((arg) => arg.length > 0)
+          .filter((arg) => arg.length > 0),
       );
     }
 
@@ -343,17 +346,17 @@ export class GameClient implements AppModule {
   private async launchJavaProcessWindows(
     javaExecutable: string,
     args: string[],
-    cwd: string
+    cwd: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const child = exec(
         `"${javaExecutable}" ${args.join(" ")}`,
-        {cwd},
+        { cwd },
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
           }
-        }
+        },
       );
       if (child.pid) {
         resolve();
@@ -366,7 +369,7 @@ export class GameClient implements AppModule {
   private async launchJavaProcessLinux(
     javaExecutable: string,
     args: string[],
-    cwd: string
+    cwd: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -374,17 +377,17 @@ export class GameClient implements AppModule {
       } catch (error) {
         log.warn(
           `Failed to set permissions on Java executable ${javaExecutable}:`,
-          error
+          error,
         );
       }
       const child = exec(
         `"${javaExecutable}" ${args.join(" ")}`,
-        {cwd},
+        { cwd },
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
           }
-        }
+        },
       );
       if (child.pid) {
         resolve();
@@ -397,7 +400,7 @@ export class GameClient implements AppModule {
   private async launchJavaProcessDarwin(
     javaExecutable: string,
     args: string[],
-    cwd: string
+    cwd: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -405,12 +408,12 @@ export class GameClient implements AppModule {
       } catch (error) {
         log.warn(
           `Failed to set permissions on Java executable ${javaExecutable}:`,
-          error
+          error,
         );
       }
 
       // Ensure we have the full system PATH for finding wine
-      const env = {...process.env};
+      const env = { ...process.env };
       if (!env.PATH?.includes("/opt/homebrew/bin")) {
         env.PATH = `${
           env.PATH || ""
@@ -419,12 +422,12 @@ export class GameClient implements AppModule {
 
       const child = exec(
         `wine "${javaExecutable}" ${args.join(" ")}`,
-        {cwd, env},
+        { cwd, env },
         (error) => {
           if (error && !error.killed) {
             log.error("Java process error:", error);
           }
-        }
+        },
       );
       if (child.pid) {
         resolve();
@@ -438,11 +441,11 @@ export class GameClient implements AppModule {
     try {
       let schemaPath = join(this.gameClientPath, "game", "arguments.json");
       if (existsSync(schemaPath)) {
-        log.info("Loading arguments descriptor from ", schemaPath)
+        log.info("Loading arguments descriptor from ", schemaPath);
         const content = await readFile(schemaPath, "utf-8");
         return JSON.parse(content);
       }
-      log.info("Arguments descriptor not found")
+      log.info("Arguments descriptor not found");
       return null;
     } catch (error) {
       log.error("Failed to load arguments.json:", error);
