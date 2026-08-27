@@ -32,12 +32,82 @@ interface ArgumentDescriptorItem {
   type: "boolean" | "string" | "number";
 }
 
+type GameArgValue = string | true;
+
+const isArgumentDescriptorItem = (
+  item: unknown,
+): item is ArgumentDescriptorItem => {
+  if (!item || typeof item !== "object") return false;
+
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.key === "string" &&
+    typeof candidate.description === "string" &&
+    (candidate.type === "boolean" ||
+      candidate.type === "string" ||
+      candidate.type === "number")
+  );
+};
+
+const splitCommandLineArgs = (argsString: string): string[] => {
+  const args: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let hasContent = false;
+
+  for (let index = 0; index < argsString.length; index += 1) {
+    const character = argsString[index];
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else if (
+        character === "\\" &&
+        argsString[index + 1] !== undefined &&
+        (argsString[index + 1] === quote || argsString[index + 1] === "\\")
+      ) {
+        current += argsString[index + 1];
+        index += 1;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      hasContent = true;
+    } else if (/\s/.test(character)) {
+      if (hasContent) {
+        args.push(current);
+        current = "";
+        hasContent = false;
+      }
+    } else {
+      current += character;
+      hasContent = true;
+    }
+  }
+
+  if (hasContent) args.push(current);
+  return args;
+};
+
+const serializeGameArg = (key: string, value: GameArgValue): string => {
+  if (value === true) return key;
+
+  const serializedValue = /\s|["']/.test(value)
+    ? JSON.stringify(value)
+    : value;
+  return `${key}=${serializedValue}`;
+};
+
 const parseGameArgs = (
   argsString: string,
-): Record<string, string | boolean> => {
-  const parsed: Record<string, string | boolean> = {};
+): Record<string, GameArgValue> => {
+  const parsed: Record<string, GameArgValue> = {};
   if (!argsString) return parsed;
-  argsString.split(/\s+/).forEach((part) => {
+  splitCommandLineArgs(argsString).forEach((part) => {
     if (!part) return;
     const [key, ...valParts] = part.split("=");
     if (valParts.length > 0) {
@@ -69,17 +139,11 @@ const updateDescriptorArg = (
 
   Object.entries(parsed).forEach(([key, val]) => {
     if (descriptorKeys.has(key)) {
-      if (val === true) {
-        descriptorParts.push(key);
-      } else if (val !== false && val !== "" && val !== undefined) {
-        descriptorParts.push(`${key}=${val}`);
+      if (val !== "") {
+        descriptorParts.push(serializeGameArg(key, val));
       }
     } else {
-      if (val === true) {
-        customParts.push(key);
-      } else {
-        customParts.push(`${key}=${val}`);
-      }
+      customParts.push(serializeGameArg(key, val));
     }
   });
 
@@ -102,20 +166,16 @@ const updateCustomArgs = (
   const descriptorParts: string[] = [];
   Object.entries(parsed).forEach(([key, val]) => {
     if (descriptorKeys.has(key)) {
-      if (val === true) {
-        descriptorParts.push(key);
-      } else if (val !== false && val !== "" && val !== undefined) {
-        descriptorParts.push(`${key}=${val}`);
+      if (val !== "") {
+        descriptorParts.push(serializeGameArg(key, val));
       }
     }
   });
 
-  const finalParts = [...descriptorParts];
-  if (newCustomStr.trim()) {
-    finalParts.push(newCustomStr.trim());
-  }
-
-  return finalParts.join(" ");
+  const customArgs = newCustomStr.trim();
+  return customArgs
+    ? [...descriptorParts, customArgs].join(" ")
+    : descriptorParts.join(" ");
 };
 
 const getCustomArgsString = (
@@ -128,11 +188,7 @@ const getCustomArgsString = (
 
   Object.entries(parsed).forEach(([key, val]) => {
     if (!descriptorKeys.has(key)) {
-      if (val === true) {
-        customParts.push(key);
-      } else {
-        customParts.push(`${key}=${val}`);
-      }
+      customParts.push(serializeGameArg(key, val));
     }
   });
 
@@ -165,6 +221,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
     ArgumentDescriptorItem[] | null
   >(null);
   const [descriptorLoading, setDescriptorLoading] = useState(false);
+  const [customGameArgsInput, setCustomGameArgsInput] = useState("");
+  const [rawGameArgsInput, setRawGameArgsInput] = useState("");
 
   // Fetch arguments.json descriptor when developer mode is enabled and settings menu is open
   useEffect(() => {
@@ -179,14 +237,9 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
         const descriptor = await gameClient.getGameArgumentsDescriptor();
         if (
           Array.isArray(descriptor) &&
-          descriptor.every(
-            (item: any) =>
-              item &&
-              typeof item.key === "string" &&
-              typeof item.type === "string",
-          )
+          descriptor.every(isArgumentDescriptorItem)
         ) {
-          setArgumentsDescriptor(descriptor as ArgumentDescriptorItem[]);
+          setArgumentsDescriptor(descriptor);
         } else {
           setArgumentsDescriptor(null);
         }
@@ -208,6 +261,20 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       setSaveError(null);
     }
   }, [isOpen, settings]);
+
+  useEffect(() => {
+    if (!ArgumentsDescriptor) return;
+
+    setCustomGameArgsInput(
+      getCustomArgsString(localSettings.devGameArgs, ArgumentsDescriptor),
+    );
+  }, [ArgumentsDescriptor, localSettings.devGameArgs]);
+
+  useEffect(() => {
+    if (ArgumentsDescriptor) return;
+
+    setRawGameArgsInput(localSettings.devGameArgs);
+  }, [ArgumentsDescriptor, localSettings.devGameArgs]);
 
   // Fetch app version and log directory when settings menu opens
   useEffect(() => {
@@ -236,6 +303,19 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       ...localSettings,
       [key]: value,
     });
+  };
+
+  const handleCustomGameArgsBlur = () => {
+    if (!ArgumentsDescriptor) return;
+
+    setLocalSettings((currentSettings) => ({
+      ...currentSettings,
+      devGameArgs: updateCustomArgs(
+        currentSettings.devGameArgs,
+        ArgumentsDescriptor,
+        customGameArgsInput,
+      ),
+    }));
   };
 
   const handleSave = async () => {
@@ -546,20 +626,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                           Autres arguments du jeu
                         </label>
                         <textarea
-                          value={getCustomArgsString(
-                            localSettings.devGameArgs,
-                            ArgumentsDescriptor,
-                          )}
-                          onChange={(e) => {
-                            const updated = updateCustomArgs(
-                              localSettings.devGameArgs,
-                              ArgumentsDescriptor,
-                              e.target.value,
-                            );
-                            updateSetting("devGameArgs", updated);
-                          }}
+                          value={customGameArgsInput}
+                          onChange={(e) =>
+                            setCustomGameArgsInput(e.target.value)
+                          }
+                          onBlur={handleCustomGameArgsBlur}
                           className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-md text-white placeholder-white/40 h-16 resize-none text-sm"
-                          placeholder="ex: CUSTOM_ARG=value"
+                          placeholder="ex: CUSTOM_ARG=value CUSTOM_ARG2=value2"
                         />
                         <p className="text-white/60 text-xs mt-1">
                           Arguments personnalisés non inclus dans le fichier de
@@ -570,12 +643,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                   ) : (
                     <>
                       <textarea
-                        value={localSettings.devGameArgs}
-                        onChange={(e) =>
-                          updateSetting("devGameArgs", e.target.value)
+                        value={rawGameArgsInput}
+                        onChange={(e) => setRawGameArgsInput(e.target.value)}
+                        onBlur={() =>
+                          updateSetting("devGameArgs", rawGameArgsInput)
                         }
                         className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-md text-white placeholder-white/40 h-24 resize-none"
-                        placeholder="valid options: CONFIGURATION_FILE,DEV_MODE,HOT_RELOAD_EFFECT,NO_CAMERA_MIN_ZOOM,NO_CLASS_RESTRICTION,ONLY_ALLOWED_LADDER_TAB,ONLY_ALLOWED_TEAM_TAB,REPLAY_FILE_PATH,SKIP_TURN_NO_DELAY,WORLD_FADE"
+                    placeholder="valid options: CONFIGURATION_FILE,DEV_MODE,HOT_RELOAD_EFFECT,NO_CAMERA_MIN_ZOOM,NO_CLASS_RESTRICTION,ONLY_ALLOWED_LADDER_TAB,ONLY_ALLOWED_TEAM_TAB,SKIP_TURN_NO_DELAY,WORLD_FADE"
                       />
                       <p className="text-white/60 text-sm mt-1">
                         Arguments additionnels passés au jeu.

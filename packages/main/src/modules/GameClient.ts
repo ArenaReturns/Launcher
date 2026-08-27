@@ -2,11 +2,55 @@ import { app, ipcMain } from "electron";
 import { join } from "path";
 import { chmodSync, existsSync, mkdirSync } from "fs";
 import { appendFile, chmod, readdir, readFile, stat } from "fs/promises";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import log from "electron-log";
 import { GameSettings, GameUpdater, ReplayFile } from "./GameUpdater.js";
 import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
+
+const splitCommandLineArgs = (argsString: string): string[] => {
+  const args: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let hasContent = false;
+
+  for (let index = 0; index < argsString.length; index += 1) {
+    const character = argsString[index];
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else if (
+        character === "\\" &&
+        argsString[index + 1] !== undefined &&
+        (argsString[index + 1] === quote || argsString[index + 1] === "\\")
+      ) {
+        current += argsString[index + 1];
+        index += 1;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      hasContent = true;
+    } else if (/\s/.test(character)) {
+      if (hasContent) {
+        args.push(current);
+        current = "";
+        hasContent = false;
+      }
+    } else {
+      current += character;
+      hasContent = true;
+    }
+  }
+
+  if (hasContent) args.push(current);
+  return args;
+};
 
 export class GameClient implements AppModule {
   private gameUpdater: GameUpdater | null = null;
@@ -77,10 +121,6 @@ export class GameClient implements AppModule {
     await this.startJavaProcess({
       mainClass: "com.ankamagames.dofusarena.client.DofusArenaClient",
       settings: this.currentSettings || undefined,
-      extraArgs:
-        this.currentSettings?.devExtraJavaArgs
-          .split(" ")
-          .map((arg) => `-${arg}`) ?? [],
     });
   }
 
@@ -194,6 +234,14 @@ export class GameClient implements AppModule {
     extraArgs?: string[];
   }): Promise<void> {
     const { mainClass, settings, extraArgs = [] } = options;
+    const fullGameArgs = [
+      ...(this.currentSettings?.devGameArgs
+        ? splitCommandLineArgs(this.currentSettings.devGameArgs).map(
+            (arg) => `-${arg}`,
+          )
+        : []),
+      ...extraArgs,
+    ];
     const gameDir = join(this.gameClientPath, "game");
     const libDir = join(this.gameClientPath, "lib");
     const jreDir = join(this.gameClientPath, "jre");
@@ -273,27 +321,26 @@ export class GameClient implements AppModule {
       "-XX:+UseG1GC",
       "-XX:G1NewSizePercent=20",
       "-XX:G1ReservePercent=20",
+      "-XX:ReservedCodeCacheSize=256m",
       "--add-exports",
       "java.desktop/sun.awt=ALL-UNNAMED",
+      "--enable-native-access=ALL-UNNAMED",
       "-Djava.net.preferIPv4Stack=true",
-      "-Dsun.awt.noerasebackground=true",
-      "-Dsun.java2d.noddraw=true",
-      "-Dsun.java2d.dpiaware=false",
-      "-Dsun.java2d.uiScale=1.0",
-      "-Djogl.disable.openglarbcontext",
-      `-Djava.library.path="${nativesPath}"`,
+      "-Djogl.disable.openglarbcontext=1",
+      `-Djava.library.path=${nativesPath}`,
     ];
+
+    if (process.platform === "darwin") {
+      javaArgs.push("-XstartOnFirstThread");
+    }
 
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
       javaArgs.push(
-        ...settings.devExtraJavaArgs
-          .split(" ")
-          .map((arg) => arg.trim())
-          .filter((arg) => arg.length > 0),
+        ...splitCommandLineArgs(settings.devExtraJavaArgs),
       );
     }
 
-    javaArgs.push("-cp", `"${fullClasspath}"`, mainClass, ...extraArgs);
+    javaArgs.push("-cp", fullClasspath, mainClass, ...fullGameArgs);
 
     switch (process.platform) {
       case "win32":
@@ -348,22 +395,7 @@ export class GameClient implements AppModule {
     args: string[],
     cwd: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const child = exec(
-        `"${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
-        (error) => {
-          if (error && !error.killed) {
-            log.error("Java process error:", error);
-          }
-        },
-      );
-      if (child.pid) {
-        resolve();
-      } else {
-        reject(new Error("Failed to start Java process"));
-      }
-    });
+    return this.spawnJavaProcess(javaExecutable, args, cwd);
   }
 
   private async launchJavaProcessLinux(
@@ -371,30 +403,16 @@ export class GameClient implements AppModule {
     args: string[],
     cwd: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        chmodSync(javaExecutable, 0o755);
-      } catch (error) {
-        log.warn(
-          `Failed to set permissions on Java executable ${javaExecutable}:`,
-          error,
-        );
-      }
-      const child = exec(
-        `"${javaExecutable}" ${args.join(" ")}`,
-        { cwd },
-        (error) => {
-          if (error && !error.killed) {
-            log.error("Java process error:", error);
-          }
-        },
+    try {
+      chmodSync(javaExecutable, 0o755);
+    } catch (error) {
+      log.warn(
+        `Failed to set permissions on Java executable ${javaExecutable}:`,
+        error,
       );
-      if (child.pid) {
-        resolve();
-      } else {
-        reject(new Error("Failed to start Java process"));
-      }
-    });
+    }
+
+    return this.spawnJavaProcess(javaExecutable, args, cwd);
   }
 
   private async launchJavaProcessDarwin(
@@ -402,53 +420,60 @@ export class GameClient implements AppModule {
     args: string[],
     cwd: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        chmodSync(javaExecutable, 0o755);
-      } catch (error) {
-        log.warn(
-          `Failed to set permissions on Java executable ${javaExecutable}:`,
-          error,
-        );
-      }
-
-      // Ensure we have the full system PATH for finding wine
-      const env = { ...process.env };
-      if (!env.PATH?.includes("/opt/homebrew/bin")) {
-        env.PATH = `${
-          env.PATH || ""
-        }:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`;
-      }
-
-      const child = exec(
-        `wine "${javaExecutable}" ${args.join(" ")}`,
-        { cwd, env },
-        (error) => {
-          if (error && !error.killed) {
-            log.error("Java process error:", error);
-          }
-        },
+    try {
+      chmodSync(javaExecutable, 0o755);
+    } catch (error) {
+      log.warn(
+        `Failed to set permissions on Java executable ${javaExecutable}:`,
+        error,
       );
-      if (child.pid) {
-        resolve();
-      } else {
-        reject(new Error("Failed to start Java process"));
-      }
+    }
+
+    // Ensure we have the full system PATH for finding wine
+    const env = { ...process.env };
+    if (!env.PATH?.includes("/opt/homebrew/bin")) {
+      env.PATH = `${
+        env.PATH || ""
+      }:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`;
+    }
+
+    return this.spawnJavaProcess("wine", [javaExecutable, ...args], cwd, env);
+  }
+
+  private spawnJavaProcess(
+    executable: string,
+    args: string[],
+    cwd: string,
+    env: NodeJS.ProcessEnv = process.env,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(executable, args, { cwd, env, stdio: "ignore" });
+
+      child.once("error", reject);
+      child.once("spawn", resolve);
+      child.once("exit", (code, signal) => {
+        if (code !== 0) {
+          log.error(
+            `Java process exited with code ${code ?? "unknown"}` +
+              (signal ? ` (signal: ${signal})` : ""),
+          );
+        }
+      });
     });
   }
 
   async getGameArgumentsDescriptor(): Promise<any> {
     try {
-      let schemaPath = join(this.gameClientPath, "game", "arguments.json");
+      let schemaPath = join(this.gameClientPath, "game", "args");
       if (existsSync(schemaPath)) {
-        log.info("Loading arguments descriptor from ", schemaPath);
+        log.info("Loading arguments descriptor from", schemaPath);
         const content = await readFile(schemaPath, "utf-8");
         return JSON.parse(content);
       }
-      log.info("Arguments descriptor not found");
+      log.info("Arguments descriptor not found at", schemaPath);
       return null;
     } catch (error) {
-      log.error("Failed to load arguments.json:", error);
+      log.error("Failed to load arguments descriptor:", error);
       return null;
     }
   }
