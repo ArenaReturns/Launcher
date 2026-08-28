@@ -16,11 +16,184 @@ import {
   Code,
   AlertTriangle,
 } from "lucide-react";
-import { SimpleSlider, SimpleSelect } from "./common/FormControls";
+import {
+  SimpleSlider,
+  SimpleSelect,
+  SimpleSwitch,
+} from "./common/FormControls";
 import type { SettingsState } from "@/types";
 import { gameClient, gameUpdater, system } from "@app/preload";
 import { useGameStateContext } from "@/contexts/GameStateContext";
 import log from "@/utils/logger";
+
+interface ArgumentDescriptorItem {
+  key: string;
+  description: string;
+  type: "boolean" | "string" | "number";
+}
+
+type GameArgValue = string | true;
+
+const isArgumentDescriptorItem = (
+  item: unknown,
+): item is ArgumentDescriptorItem => {
+  if (!item || typeof item !== "object") return false;
+
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.key === "string" &&
+    typeof candidate.description === "string" &&
+    (candidate.type === "boolean" ||
+      candidate.type === "string" ||
+      candidate.type === "number")
+  );
+};
+
+const splitCommandLineArgs = (argsString: string): string[] => {
+  const args: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let hasContent = false;
+
+  for (let index = 0; index < argsString.length; index += 1) {
+    const character = argsString[index];
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else if (
+        character === "\\" &&
+        argsString[index + 1] !== undefined &&
+        (argsString[index + 1] === quote || argsString[index + 1] === "\\")
+      ) {
+        current += argsString[index + 1];
+        index += 1;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      hasContent = true;
+    } else if (/\s/.test(character)) {
+      if (hasContent) {
+        args.push(current);
+        current = "";
+        hasContent = false;
+      }
+    } else {
+      current += character;
+      hasContent = true;
+    }
+  }
+
+  if (hasContent) args.push(current);
+  return args;
+};
+
+const serializeGameArg = (key: string, value: GameArgValue): string => {
+  if (value === true) return key;
+
+  const serializedValue = /\s|["']/.test(value)
+    ? JSON.stringify(value)
+    : value;
+  return `${key}=${serializedValue}`;
+};
+
+const parseGameArgs = (
+  argsString: string,
+): Record<string, GameArgValue> => {
+  const parsed: Record<string, GameArgValue> = {};
+  if (!argsString) return parsed;
+  splitCommandLineArgs(argsString).forEach((part) => {
+    if (!part) return;
+    const [key, ...valParts] = part.split("=");
+    if (valParts.length > 0) {
+      parsed[key] = valParts.join("=");
+    } else {
+      parsed[key] = true;
+    }
+  });
+  return parsed;
+};
+
+const updateDescriptorArg = (
+  currentArgsStr: string,
+  descriptor: ArgumentDescriptorItem[],
+  keyToUpdate: string,
+  newValue: string | boolean,
+): string => {
+  const parsed = parseGameArgs(currentArgsStr);
+  const descriptorKeys = new Set(descriptor.map((s) => s.key));
+
+  if (newValue === false || newValue === "") {
+    delete parsed[keyToUpdate];
+  } else {
+    parsed[keyToUpdate] = newValue;
+  }
+
+  const descriptorParts: string[] = [];
+  const customParts: string[] = [];
+
+  Object.entries(parsed).forEach(([key, val]) => {
+    if (descriptorKeys.has(key)) {
+      if (val !== "") {
+        descriptorParts.push(serializeGameArg(key, val));
+      }
+    } else {
+      customParts.push(serializeGameArg(key, val));
+    }
+  });
+
+  const finalParts = [...descriptorParts];
+  if (customParts.length > 0) {
+    finalParts.push(customParts.join(" "));
+  }
+
+  return finalParts.join(" ");
+};
+
+const updateCustomArgs = (
+  currentArgsStr: string,
+  descriptor: ArgumentDescriptorItem[],
+  newCustomStr: string,
+): string => {
+  const parsed = parseGameArgs(currentArgsStr);
+  const descriptorKeys = new Set(descriptor.map((s) => s.key));
+
+  const descriptorParts: string[] = [];
+  Object.entries(parsed).forEach(([key, val]) => {
+    if (descriptorKeys.has(key)) {
+      if (val !== "") {
+        descriptorParts.push(serializeGameArg(key, val));
+      }
+    }
+  });
+
+  const customArgs = newCustomStr.trim();
+  return customArgs
+    ? [...descriptorParts, customArgs].join(" ")
+    : descriptorParts.join(" ");
+};
+
+const getCustomArgsString = (
+  currentArgsStr: string,
+  descriptor: ArgumentDescriptorItem[],
+): string => {
+  const parsed = parseGameArgs(currentArgsStr);
+  const descriptorKeys = new Set(descriptor.map((s) => s.key));
+  const customParts: string[] = [];
+
+  Object.entries(parsed).forEach(([key, val]) => {
+    if (!descriptorKeys.has(key)) {
+      customParts.push(serializeGameArg(key, val));
+    }
+  });
+
+  return customParts.join(" ");
+};
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -44,6 +217,43 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   // Local settings state for editing (doesn't affect main UI)
   const [localSettings, setLocalSettings] = useState<SettingsState>(settings);
 
+  const [ArgumentsDescriptor, setArgumentsDescriptor] = useState<
+    ArgumentDescriptorItem[] | null
+  >(null);
+  const [descriptorLoading, setDescriptorLoading] = useState(false);
+  const [customGameArgsInput, setCustomGameArgsInput] = useState("");
+  const [rawGameArgsInput, setRawGameArgsInput] = useState("");
+
+  // Fetch arguments.json descriptor when developer mode is enabled and settings menu is open
+  useEffect(() => {
+    if (!isOpen || !localSettings.devModeEnabled) {
+      setArgumentsDescriptor(null);
+      return;
+    }
+
+    const fetchDescriptor = async () => {
+      setDescriptorLoading(true);
+      try {
+        const descriptor = await gameClient.getGameArgumentsDescriptor();
+        if (
+          Array.isArray(descriptor) &&
+          descriptor.every(isArgumentDescriptorItem)
+        ) {
+          setArgumentsDescriptor(descriptor);
+        } else {
+          setArgumentsDescriptor(null);
+        }
+      } catch (error) {
+        log.error("Failed to fetch arguments descriptor:", error);
+        setArgumentsDescriptor(null);
+      } finally {
+        setDescriptorLoading(false);
+      }
+    };
+
+    fetchDescriptor();
+  }, [isOpen, localSettings.devModeEnabled]);
+
   // Update local settings when menu opens or settings prop changes
   useEffect(() => {
     if (isOpen) {
@@ -51,6 +261,20 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       setSaveError(null);
     }
   }, [isOpen, settings]);
+
+  useEffect(() => {
+    if (!ArgumentsDescriptor) return;
+
+    setCustomGameArgsInput(
+      getCustomArgsString(localSettings.devGameArgs, ArgumentsDescriptor),
+    );
+  }, [ArgumentsDescriptor, localSettings.devGameArgs]);
+
+  useEffect(() => {
+    if (ArgumentsDescriptor) return;
+
+    setRawGameArgsInput(localSettings.devGameArgs);
+  }, [ArgumentsDescriptor, localSettings.devGameArgs]);
 
   // Fetch app version and log directory when settings menu opens
   useEffect(() => {
@@ -79,6 +303,19 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       ...localSettings,
       [key]: value,
     });
+  };
+
+  const handleCustomGameArgsBlur = () => {
+    if (!ArgumentsDescriptor) return;
+
+    setLocalSettings((currentSettings) => ({
+      ...currentSettings,
+      devGameArgs: updateCustomArgs(
+        currentSettings.devGameArgs,
+        ArgumentsDescriptor,
+        customGameArgsInput,
+      ),
+    }));
   };
 
   const handleSave = async () => {
@@ -267,7 +504,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     onChange={(value) =>
                       updateSetting(
                         "devCdnEnvironment",
-                        value as "production" | "staging"
+                        value as "production" | "staging",
                       )
                     }
                     options={[
@@ -308,6 +545,117 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     Arguments additionnels passés à la JVM lors du lancement du
                     jeu.
                   </p>
+                </div>
+
+                <div>
+                  <label className="text-white/80 text-base block mb-2">
+                    Options du jeu
+                  </label>
+                  {descriptorLoading ? (
+                    <div className="text-white/60 text-sm py-4">
+                      Chargement des arguments...
+                    </div>
+                  ) : ArgumentsDescriptor ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 p-4 rounded-lg border border-white/5">
+                        {ArgumentsDescriptor.map((item) => {
+                          const parsedArgs = parseGameArgs(
+                            localSettings.devGameArgs,
+                          );
+                          const currentValue = parsedArgs[item.key];
+
+                          return (
+                            <div
+                              key={item.key}
+                              className="flex flex-col justify-between p-2 bg-white/5 rounded border border-white/10"
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-white font-medium text-sm">
+                                  {item.key}
+                                </span>
+                                {item.type === "boolean" ? (
+                                  <SimpleSwitch
+                                    checked={
+                                      currentValue === true ||
+                                      currentValue === "true"
+                                    }
+                                    onChange={(checked) => {
+                                      const updated = updateDescriptorArg(
+                                        localSettings.devGameArgs,
+                                        ArgumentsDescriptor,
+                                        item.key,
+                                        checked,
+                                      );
+                                      updateSetting("devGameArgs", updated);
+                                    }}
+                                  />
+                                ) : (
+                                  <input
+                                    type={
+                                      item.type === "number" ? "number" : "text"
+                                    }
+                                    value={
+                                      currentValue !== undefined &&
+                                      currentValue !== true
+                                        ? String(currentValue)
+                                        : ""
+                                    }
+                                    onChange={(e) => {
+                                      const updated = updateDescriptorArg(
+                                        localSettings.devGameArgs,
+                                        ArgumentsDescriptor,
+                                        item.key,
+                                        e.target.value,
+                                      );
+                                      updateSetting("devGameArgs", updated);
+                                    }}
+                                    className="w-1/2 px-2 py-1 bg-black/40 border border-white/20 rounded text-white text-sm"
+                                  />
+                                )}
+                              </div>
+                              <span className="text-white/50 text-xs">
+                                {item.description}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div>
+                        <label className="text-white/80 text-sm block mb-1">
+                          Autres arguments du jeu
+                        </label>
+                        <textarea
+                          value={customGameArgsInput}
+                          onChange={(e) =>
+                            setCustomGameArgsInput(e.target.value)
+                          }
+                          onBlur={handleCustomGameArgsBlur}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-md text-white placeholder-white/40 h-16 resize-none text-sm"
+                          placeholder="ex: CUSTOM_ARG=value CUSTOM_ARG2=value2"
+                        />
+                        <p className="text-white/60 text-xs mt-1">
+                          Arguments personnalisés non inclus dans le fichier de
+                          configuration.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={rawGameArgsInput}
+                        onChange={(e) => setRawGameArgsInput(e.target.value)}
+                        onBlur={() =>
+                          updateSetting("devGameArgs", rawGameArgsInput)
+                        }
+                        className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-md text-white placeholder-white/40 h-24 resize-none"
+                    placeholder="valid options: CONFIGURATION_FILE,DEV_MODE,HOT_RELOAD_EFFECT,NO_CAMERA_MIN_ZOOM,NO_CLASS_RESTRICTION,ONLY_ALLOWED_LADDER_TAB,ONLY_ALLOWED_TEAM_TAB,SKIP_TURN_NO_DELAY,WORLD_FADE"
+                      />
+                      <p className="text-white/60 text-sm mt-1">
+                        Arguments additionnels passés au jeu.
+                      </p>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

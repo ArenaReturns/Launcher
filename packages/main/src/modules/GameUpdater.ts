@@ -35,10 +35,41 @@ export interface FileManifest {
 export interface VersionManifest {
   version: string;
   base: FileManifest[];
-  windows: FileManifest[];
-  "macos-intel": FileManifest[];
-  "macos-arm": FileManifest[];
-  linux: FileManifest[];
+  linux_arm64: FileManifest[];
+  linux_x64: FileManifest[];
+  windows_arm64: FileManifest[];
+  windows_x86: FileManifest[];
+  windows_x64: FileManifest[];
+  macos_x64: FileManifest[];
+  macos_arm64: FileManifest[];
+}
+
+export type PlatformManifestEntry = Exclude<
+  keyof VersionManifest,
+  "version" | "base"
+>;
+
+export function getPlatformManifestEntry(): PlatformManifestEntry {
+  switch (`${process.platform}_${process.arch}`) {
+    case "linux_arm64":
+      return "linux_arm64";
+    case "linux_x64":
+      return "linux_x64";
+    case "win32_arm64":
+      return "windows_arm64";
+    // case "win32_ia32": //no jdk to support it \o/
+    //   return "windows_x86";
+    case "win32_x64":
+      return "windows_x64";
+    case "darwin_x64":
+      return "macos_x64";
+    case "darwin_arm64":
+      return "macos_arm64";
+    default:
+      throw new Error(
+        `Unsupported platform or architecture: ${process.platform}/${process.arch}`,
+      );
+  }
 }
 
 export interface GameStatus {
@@ -62,6 +93,7 @@ export interface GameSettings {
   gameRamAllocation: number;
   devModeEnabled: boolean;
   devExtraJavaArgs: string;
+  devGameArgs: string;
   devForceVersion: string;
   devCdnEnvironment: "production" | "staging";
 }
@@ -118,12 +150,12 @@ export class GameUpdater implements AppModule {
     ipcMain.handle("gameUpdater:checkForUpdates", () => this.checkForUpdates());
     ipcMain.handle("gameUpdater:startDownload", () => this.startDownload());
     ipcMain.handle("gameUpdater:getDownloadProgress", () =>
-      this.getDownloadProgress()
+      this.getDownloadProgress(),
     );
     ipcMain.handle("gameUpdater:cancelDownload", () => this.cancelDownload());
     ipcMain.handle("gameUpdater:repairClient", () => this.repairClient());
     ipcMain.handle("gameUpdater:openGameDirectory", () =>
-      this.openGameDirectory()
+      this.openGameDirectory(),
     );
   }
 
@@ -172,7 +204,7 @@ export class GameUpdater implements AppModule {
     if (previousSettings) {
       if (previousSettings.devCdnEnvironment !== settings.devCdnEnvironment) {
         log.debug(
-          `CDN environment changed from ${previousSettings.devCdnEnvironment} to ${settings.devCdnEnvironment}, notifying UI to refresh status`
+          `CDN environment changed from ${previousSettings.devCdnEnvironment} to ${settings.devCdnEnvironment}, notifying UI to refresh status`,
         );
 
         this.notifyRenderer("status-changed", {});
@@ -225,7 +257,7 @@ export class GameUpdater implements AppModule {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch version info: ${response.status} ${response.statusText}`
+          `Failed to fetch version info: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -250,7 +282,7 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to update local version: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -275,13 +307,13 @@ export class GameUpdater implements AppModule {
       this.notifyRenderer("download-started", this.downloadProgress);
 
       const remoteVersion = await this.getRemoteVersion();
-      const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`
-      );
+      let manifestURL = `${this.cdnUrl}/versions/${remoteVersion}.json`;
+      log.info("Fetching manifest from ", manifestURL)
+      const manifestResponse = await fetch(manifestURL);
 
       if (!manifestResponse.ok) {
         throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`
+          `Failed to fetch version manifest: ${manifestResponse.status}`,
         );
       }
 
@@ -334,12 +366,12 @@ export class GameUpdater implements AppModule {
 
       const remoteVersion = await this.getRemoteVersion();
       const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`
+        `${this.cdnUrl}/versions/${remoteVersion}.json`,
       );
 
       if (!manifestResponse.ok) {
         throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`
+          `Failed to fetch version manifest: ${manifestResponse.status}`,
         );
       }
 
@@ -372,40 +404,19 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to open game directory: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
 
   // ---------------- Internal helpers ----------------
   private getPlatformFiles(manifest: VersionManifest): FileManifest[] {
-    const files: FileManifest[] = [...manifest.base];
-
-    switch (process.platform) {
-      case "win32":
-        files.push(...manifest.windows);
-        break;
-      case "darwin":
-        // FIXME: Gigahack since darwin relies on wine
-        files.push(...manifest.windows);
-        break;
-        /*if (process.arch === "x64") {
-          files.push(...manifest["macos-intel"]);
-        } else {
-          files.push(...manifest["macos-arm"]);
-        }*/
-        break;
-      case "linux":
-        files.push(...manifest.linux);
-        break;
-    }
-
-    return files;
+    return [...manifest.base, ...manifest[getPlatformManifestEntry()]];
   }
 
   private async checkFiles(
     files: FileManifest[],
-    forceCheck = false
+    forceCheck = false,
   ): Promise<void> {
     if (!existsSync(this.gameClientPath)) {
       mkdirSync(this.gameClientPath, { recursive: true });
@@ -491,7 +502,7 @@ export class GameUpdater implements AppModule {
     const downloadPromises = files.map((file) =>
       queue.add(() => this.downloadAndSaveFile(file), {
         priority: 1,
-      })
+      }),
     );
 
     try {
@@ -535,7 +546,7 @@ export class GameUpdater implements AppModule {
       const response = await fetch(fileUrl);
       if (!response.ok) {
         throw new Error(
-          `Failed to download file: ${response.status} ${response.statusText}`
+          `Failed to download file: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -548,7 +559,7 @@ export class GameUpdater implements AppModule {
 
       const dir = join(
         this.gameClientPath,
-        file.path.split("/").slice(0, -1).join("/")
+        file.path.split("/").slice(0, -1).join("/"),
       );
       if (dir && !existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -569,7 +580,7 @@ export class GameUpdater implements AppModule {
       throw new Error(
         `Failed to download file ${file.path}: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -652,7 +663,7 @@ export class GameUpdater implements AppModule {
   private async getAllLocalFiles(
     dirPath: string = this.gameClientPath,
     relativeTo: string = this.gameClientPath,
-    files: string[] = []
+    files: string[] = [],
   ): Promise<string[]> {
     try {
       const entries = await readdir(dirPath);
