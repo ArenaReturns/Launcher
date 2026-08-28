@@ -4,7 +4,12 @@ import { chmodSync, existsSync, mkdirSync } from "fs";
 import { appendFile, chmod, readdir, readFile, stat } from "fs/promises";
 import { spawn } from "child_process";
 import log from "electron-log";
-import { GameSettings, GameUpdater, ReplayFile } from "./GameUpdater.js";
+import {
+  GameSettings,
+  GameUpdater,
+  ReplayFile,
+  getPlatformManifestEntry,
+} from "./GameUpdater.js";
 import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
 
@@ -248,44 +253,26 @@ export class GameClient implements AppModule {
     const nativesDir = join(this.gameClientPath, "natives");
 
     if (!existsSync(gameDir)) throw new Error("Game directory not found");
-    if (!existsSync(libDir)) throw new Error("Library directory not found");
     if (!existsSync(jreDir)) throw new Error("JRE directory not found");
-    if (!existsSync(nativesDir)) throw new Error("Natives directory not found");
 
-    const libFiles = (await readdir(libDir)).filter((f) => f.endsWith(".jar"));
-    // FIXME: Gigahack since darwin relies on wine
-    const classpath = libFiles
-      .map((jar) => join(libDir, jar))
-      .join(
-        process.platform === "win32" || process.platform === "darwin"
-          ? ";"
-          : ":",
-      );
     const coreJarPath = join(gameDir, "core.jar");
     // FIXME: Gigahack since darwin relies on wine
-    const fullClasspath =
-      classpath +
-      (process.platform === "win32" || process.platform === "darwin"
-        ? ";"
-        : ":") +
-      coreJarPath;
+    const classpathSeparator =
+      process.platform === "win32" || process.platform === "darwin" ? ";" : ":";
+    const libCP = existsSync(libDir)
+      ? (await readdir(libDir))
+        .filter((file) => file.endsWith(".jar"))
+        .map((jar) => join(libDir, jar))
+      : [];
 
-    let nativesPath: string;
-    switch (process.platform) {
-      case "win32":
-        nativesPath = join(nativesDir, "win32", "x64");
-        break;
-      case "darwin":
-        nativesPath = join(nativesDir, "win32", "x64");
-        // FIXME: Native macos build not yet available
-        // nativesPath = join(nativesDir, "darwin", "universal");
-        break;
-      case "linux":
-        nativesPath = join(nativesDir, "linux", "x64");
-        break;
-      default:
-        throw new Error(`Unsupported platform: ${process.platform}`);
-    }
+    const fullClasspath = [
+      ...libCP,
+
+      join(nativesDir, "*"), //pseudo-natives library in jar format; needs to be passed to the cp
+      join(nativesDir, getPlatformManifestEntry(), "*"),
+
+      coreJarPath,
+    ].join(classpathSeparator);
 
     let javaExecutable: string;
     switch (process.platform) {
@@ -326,13 +313,11 @@ export class GameClient implements AppModule {
       "java.desktop/sun.awt=ALL-UNNAMED",
       "--enable-native-access=ALL-UNNAMED",
       "-Djava.net.preferIPv4Stack=true",
+      "-Dsun.java2d.dpiaware=false",
+      "-Dsun.java2d.uiScale=1.0",
       "-Djogl.disable.openglarbcontext=1",
-      `-Djava.library.path=${nativesPath}`,
+      "--sun-misc-unsafe-memory-access=allow"
     ];
-
-    if (process.platform === "darwin") {
-      javaArgs.push("-XstartOnFirstThread");
-    }
 
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
       javaArgs.push(
@@ -341,6 +326,8 @@ export class GameClient implements AppModule {
     }
 
     javaArgs.push("-cp", fullClasspath, mainClass, ...fullGameArgs);
+
+    log.info("Launching game with ", javaArgs, "in", gameDir, "and exe", javaExecutable)
 
     switch (process.platform) {
       case "win32":

@@ -1,57 +1,57 @@
 [
-    {
-        "key": "DEV_MODE",
-        "description": "Activates the developer mode, enabling additional debug tools and shortcuts.",
-        "type": "boolean"
-    },
-    {
-        "key": "CONFIGURATION_FILE",
-        "description": "Path to the configuration file to use.",
-        "type": "string"
-    },
-    {
-        "key": "NO_CAMERA_MIN_ZOOM",
-        "description": "Disables the minimum zoom restriction on the camera.",
-        "type": "boolean"
-    },
-    {
-        "key": "ONLY_ALLOWED_TEAM_TAB",
-        "description": "The tab number of the only tab allowed in the Fighter Management UI.",
-        "type": "number"
-    },
-    {
-        "key": "ONLY_ALLOWED_LADDER_TAB",
-        "description": "The tab number of the only tab allowed in the Ladder UI.",
-        "type": "number"
-    },
-    {
-        "key": "SKIP_TURN_NO_DELAY",
-        "description": "Bypass the delay before ending a turn.",
-        "type": "boolean"
-    },
-    {
-        "key": "REPLAY_FILE_PATH",
-        "description": "Path to a replay file to load and play.",
-        "type": "string"
-    },
-    {
-        "key": "WORLD_FADE",
-        "description": "Activates the world fade effect during transitions.",
-        "type": "boolean"
-    },
-    {
-        "key": "HOT_RELOAD_EFFECT",
-        "description": "Enables hot reloading of visual effects.",
-        "type": "boolean"
-    },
-    {
-        "key": "NO_CLASS_RESTRICTION",
-        "description": "Disables class restrictions for character creation or editing.",
-        "type": "boolean"
-    },
-    {
-        "key": "RESTORE_CONSOLE_PATH",
-        "description": "Restores the last used console path on startup instead of defaulting to admin.",
-        "type": "boolean"
-    }
+  {
+    "key": "DEV_MODE",
+    "description": "Activates the developer mode, enabling additional debug tools and shortcuts.",
+    "type": "boolean"
+  },
+  {
+    "key": "CONFIGURATION_FILE",
+    "description": "Path to the configuration file to use.",
+    "type": "string"
+  },
+  {
+    "key": "NO_CAMERA_MIN_ZOOM",
+    "description": "Disables the minimum zoom restriction on the camera.",
+    "type": "boolean"
+  },
+  {
+    "key": "ONLY_ALLOWED_TEAM_TAB",
+    "description": "The tab number of the only tab allowed in the Fighter Management UI.",
+    "type": "number"
+  },
+  {
+    "key": "ONLY_ALLOWED_LADDER_TAB",
+    "description": "The tab number of the only tab allowed in the Ladder UI one of [ONE_VS_ONE,EVOLUTION,TWO_VS_TWO,GUILD,TOURNAMENT,PRO]",
+    "type": "string"
+  },
+  {
+    "key": "SKIP_TURN_NO_DELAY",
+    "description": "Bypass the delay before ending a turn.",
+    "type": "boolean"
+  },
+  {
+    "key": "REPLAY_FILE_PATH",
+    "description": "Path to a replay file to load and play.",
+    "type": "string"
+  },
+  {
+    "key": "WORLD_FADE",
+    "description": "Activates the world fade effect during transitions.",
+    "type": "boolean"
+  },
+  {
+    "key": "HOT_RELOAD_EFFECT",
+    "description": "Enables hot reloading of visual effects.",
+    "type": "boolean"
+  },
+  {
+    "key": "NO_CLASS_RESTRICTION",
+    "description": "Disables class restrictions for character creation or editing.",
+    "type": "boolean"
+  },
+  {
+    "key": "RESTORE_CONSOLE_PATH",
+    "description": "Restores the last used console path on startup instead of defaulting to server.",
+    "type": "boolean"
+  }
 ]

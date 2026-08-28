@@ -35,10 +35,41 @@ export interface FileManifest {
 export interface VersionManifest {
   version: string;
   base: FileManifest[];
-  windows: FileManifest[];
-  "macos-intel": FileManifest[];
-  "macos-arm": FileManifest[];
-  linux: FileManifest[];
+  linux_arm64: FileManifest[];
+  linux_x64: FileManifest[];
+  windows_arm64: FileManifest[];
+  windows_x86: FileManifest[];
+  windows_x64: FileManifest[];
+  macos_x64: FileManifest[];
+  macos_arm64: FileManifest[];
+}
+
+export type PlatformManifestEntry = Exclude<
+  keyof VersionManifest,
+  "version" | "base"
+>;
+
+export function getPlatformManifestEntry(): PlatformManifestEntry {
+  switch (`${process.platform}_${process.arch}`) {
+    case "linux_arm64":
+      return "linux_arm64";
+    case "linux_x64":
+      return "linux_x64";
+    case "win32_arm64":
+      return "windows_arm64";
+    // case "win32_ia32": //no jdk to support it \o/
+    //   return "windows_x86";
+    case "win32_x64":
+      return "windows_x64";
+    case "darwin_x64":
+      return "macos_x64";
+    case "darwin_arm64":
+      return "macos_arm64";
+    default:
+      throw new Error(
+        `Unsupported platform or architecture: ${process.platform}/${process.arch}`,
+      );
+  }
 }
 
 export interface GameStatus {
@@ -276,9 +307,9 @@ export class GameUpdater implements AppModule {
       this.notifyRenderer("download-started", this.downloadProgress);
 
       const remoteVersion = await this.getRemoteVersion();
-      const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`,
-      );
+      let manifestURL = `${this.cdnUrl}/versions/${remoteVersion}.json`;
+      log.info("Fetching manifest from ", manifestURL)
+      const manifestResponse = await fetch(manifestURL);
 
       if (!manifestResponse.ok) {
         throw new Error(
@@ -380,28 +411,7 @@ export class GameUpdater implements AppModule {
 
   // ---------------- Internal helpers ----------------
   private getPlatformFiles(manifest: VersionManifest): FileManifest[] {
-    const files: FileManifest[] = [...manifest.base];
-
-    switch (process.platform) {
-      case "win32":
-        files.push(...manifest.windows);
-        break;
-      case "darwin":
-        // FIXME: Gigahack since darwin relies on wine
-        files.push(...manifest.windows);
-        break;
-        /*if (process.arch === "x64") {
-          files.push(...manifest["macos-intel"]);
-        } else {
-          files.push(...manifest["macos-arm"]);
-        }*/
-        break;
-      case "linux":
-        files.push(...manifest.linux);
-        break;
-    }
-
-    return files;
+    return [...manifest.base, ...manifest[getPlatformManifestEntry()]];
   }
 
   private async checkFiles(
