@@ -256,9 +256,7 @@ export class GameClient implements AppModule {
     if (!existsSync(jreDir)) throw new Error("JRE directory not found");
 
     const coreJarPath = join(gameDir, "core.jar");
-    // FIXME: Gigahack since darwin relies on wine
-    const classpathSeparator =
-      process.platform === "win32" || process.platform === "darwin" ? ";" : ":";
+    const classpathSeparator = process.platform === "win32" ? ";" : ":";
     const libCP = existsSync(libDir)
       ? (await readdir(libDir))
         .filter((file) => file.endsWith(".jar"))
@@ -280,9 +278,7 @@ export class GameClient implements AppModule {
         javaExecutable = join(jreDir, "bin", "java.exe");
         break;
       case "darwin":
-        javaExecutable = join(jreDir, "bin", "java.exe");
-        // FIXME: Native macos build not yet available
-        // javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
+        javaExecutable = join(jreDir, "Contents", "Home", "bin", "java");
         break;
       default:
         javaExecutable = join(jreDir, "bin", "java");
@@ -319,6 +315,11 @@ export class GameClient implements AppModule {
       "--sun-misc-unsafe-memory-access=allow"
     ];
 
+    if (process.platform === "darwin") {
+      // GLFW requires the JVM's main thread to be the first macOS thread.
+      javaArgs.push("-XstartOnFirstThread");
+    }
+
     if (settings?.devModeEnabled && settings?.devExtraJavaArgs) {
       javaArgs.push(
         ...splitCommandLineArgs(settings.devExtraJavaArgs),
@@ -353,14 +354,9 @@ export class GameClient implements AppModule {
   }
 
   private async ensureJrePermissions(jreDir: string): Promise<void> {
-    let binDir: string;
-    if (process.platform === "darwin") {
-      return;
-      // FIXME: Native macos build not yet available
-      // binDir = join(jreDir, "Contents", "Home", "bin");
-    } else {
-      binDir = join(jreDir, "bin");
-    }
+    const binDir = process.platform === "darwin"
+      ? join(jreDir, "Contents", "Home", "bin")
+      : join(jreDir, "bin");
 
     if (!existsSync(binDir)) return;
     const binFiles = await readdir(binDir);
@@ -407,24 +403,7 @@ export class GameClient implements AppModule {
     args: string[],
     cwd: string,
   ): Promise<void> {
-    try {
-      chmodSync(javaExecutable, 0o755);
-    } catch (error) {
-      log.warn(
-        `Failed to set permissions on Java executable ${javaExecutable}:`,
-        error,
-      );
-    }
-
-    // Ensure we have the full system PATH for finding wine
-    const env = { ...process.env };
-    if (!env.PATH?.includes("/opt/homebrew/bin")) {
-      env.PATH = `${
-        env.PATH || ""
-      }:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`;
-    }
-
-    return this.spawnJavaProcess("wine", [javaExecutable, ...args], cwd, env);
+    return this.spawnJavaProcess(javaExecutable, args, cwd);
   }
 
   private spawnJavaProcess(
