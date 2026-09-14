@@ -35,6 +35,7 @@ export interface SettingsState {
   // Developer mode
   devModeEnabled: boolean;
   devExtraJavaArgs: string;
+  devGameArgs: string;
   devForceVersion: string;
   devCdnEnvironment: "production" | "staging";
 }

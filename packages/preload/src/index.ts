@@ -58,6 +58,8 @@ const gameClient = {
   listReplays: () => ipcRenderer.invoke("gameClient:listReplays"),
   launchReplayOffline: (replayPath: string) =>
     ipcRenderer.invoke("gameClient:launchReplayOffline", replayPath),
+  getGameArgumentsDescriptor: () =>
+    ipcRenderer.invoke("gameClient:getGameArgumentsDescriptor"),
 };
 
 // News functions

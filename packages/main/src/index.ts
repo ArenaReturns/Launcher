@@ -44,7 +44,7 @@ export async function initApp(initConfig: AppInitConfig) {
       createWindowManagerModule({
         initConfig,
         openDevTools: import.meta.env.DEV,
-      })
+      }),
     )
     .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
@@ -59,16 +59,18 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(
       allowInternalOrigins(
         new Set(
-          initConfig.renderer instanceof URL ? [initConfig.renderer.origin] : []
-        )
-      )
+          initConfig.renderer instanceof URL
+            ? [initConfig.renderer.origin]
+            : [],
+        ),
+      ),
     )
     .init(
       allowExternalUrls(
         initConfig.renderer instanceof URL
           ? ALLOWED_EXTERNAL_ORIGINS
-          : new Set()
-      )
+          : new Set(),
+      ),
     );
 
   await moduleRunner;
