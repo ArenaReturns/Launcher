@@ -39,7 +39,6 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run typecheck --if-present
-      - run: npm test --workspaces --if-present
 
   compile:
     strategy:

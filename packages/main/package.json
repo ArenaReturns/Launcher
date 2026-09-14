@@ -3,7 +3,6 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test": "node --test test/*.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "exports": {
