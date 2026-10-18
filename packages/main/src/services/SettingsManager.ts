@@ -13,7 +13,7 @@ export class SettingsManager {
   private changeCallbacks: Set<SettingsChangeCallback> = new Set();
 
   constructor() {
-    this.settingsPath = join(app.getPath("userData"), "settings.json");
+    this.settingsPath = join(app.getPath("userData"), "settings_v2.json");
     this.currentSettings = this.getDefaultSettings();
   }
 
