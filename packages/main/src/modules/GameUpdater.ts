@@ -17,6 +17,7 @@ import { constants } from "fs";
 import { createHash } from "crypto";
 import PQueue from "p-queue";
 import log from "electron-log";
+import { getErrorDetails, OperationError } from "../utils/errorDetails.js";
 
 // Get app version from Electron's app metadata (works in both dev and packaged)
 function getAppVersion(): string {
@@ -114,7 +115,8 @@ export class GameUpdater implements AppModule {
   private cdnUrl: string;
   private downloadProgress: DownloadProgress;
   private versionManifest: VersionManifest | null = null;
-  private currentDownloadQueue: PQueue | null = null;
+  private downloadController: AbortController | null = null;
+  private downloadSettled: Promise<void> | null = null;
   private currentSettings: GameSettings | undefined = undefined;
   private lastProgressNotification: number = 0;
 
@@ -182,6 +184,10 @@ export class GameUpdater implements AppModule {
         remoteVersion,
       };
     } catch (error) {
+      log.error(
+        "GameUpdater: Status check failed",
+        JSON.stringify(getErrorDetails(error)),
+      );
       return {
         isInstalled: false,
         needsUpdate: false,
@@ -227,13 +233,13 @@ export class GameUpdater implements AppModule {
     }
   }
 
-  private async getRemoteVersion(): Promise<string> {
-    const environment =
-      this.currentSettings?.devModeEnabled &&
-      this.currentSettings?.devCdnEnvironment
-        ? this.currentSettings.devCdnEnvironment
-        : this.environment;
+  private getEnvironment(): string {
+    return this.currentSettings?.devModeEnabled && this.currentSettings.devCdnEnvironment
+      ? this.currentSettings.devCdnEnvironment
+      : this.environment;
+  }
 
+  private async getRemoteVersion(signal?: AbortSignal): Promise<string> {
     if (
       this.currentSettings?.devModeEnabled &&
       this.currentSettings?.devForceVersion
@@ -241,35 +247,62 @@ export class GameUpdater implements AppModule {
       return this.currentSettings.devForceVersion;
     }
 
-    const cdnUrl = `${this.cdnUrl}/${environment}.json`;
-    log.debug(`Fetching version info from ${cdnUrl}`);
+    const data = await this.fetchResource<GameVersionInfo>(
+      `${this.cdnUrl}/${this.getEnvironment()}.json`,
+      (response) => response.json(),
+      "version-info",
+      signal,
+      5000,
+    );
+    if (!data.gameVersion) {
+      throw new Error("Invalid version data received from CDN");
+    }
+    return data.gameVersion;
+  }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
+  private async fetchResource<T>(
+    url: string,
+    readResponse: (response: Response) => Promise<T>,
+    resource: string,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    const timeoutSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+    const signals = [signal, timeoutSignal].filter(
+      (entry): entry is AbortSignal => entry !== undefined,
+    );
+    let phase = "connect";
+    let response: Response | undefined;
     try {
-      const response = await fetch(cdnUrl, {
-        signal: controller.signal,
-        headers: {
-          "User-Agent": `ArenaReturnsLauncher/${getAppVersion()}`,
-        },
+      response = await fetch(url, {
+        signal: signals.length ? AbortSignal.any(signals) : undefined,
+        headers: { "User-Agent": `ArenaReturnsLauncher/${getAppVersion()}` },
       });
-
+      phase = "http-status";
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch version info: ${response.status} ${response.statusText}`,
-        );
+        // Release the response body before reporting an HTTP failure.
+        await response.body?.cancel().catch(() => {});
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
       }
-
-      const data: GameVersionInfo = await response.json();
-
-      if (!data.gameVersion) {
-        throw new Error("Invalid version data received from CDN");
-      }
-
-      return data.gameVersion;
-    } finally {
-      clearTimeout(timeoutId);
+      phase = "read-body";
+      return await readResponse(response);
+    } catch (error) {
+      throw new OperationError(
+        `Failed to fetch ${resource}: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          resource,
+          phase,
+          url,
+          elapsedMs: Date.now() - startedAt,
+          status: response?.status,
+          statusText: response?.statusText,
+          responseUrl: response?.url,
+          timeoutMs,
+          timedOut: timeoutSignal?.aborted ?? false,
+        },
+        error,
+      );
     }
   }
 
@@ -283,6 +316,7 @@ export class GameUpdater implements AppModule {
         `Failed to update local version: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
+        { cause: error },
       );
     }
   }
@@ -293,98 +327,103 @@ export class GameUpdater implements AppModule {
   }
 
   async startDownload(): Promise<void> {
-    if (this.downloadProgress.isDownloading) {
-      throw new Error("Download or repair already in progress");
-    }
-
-    try {
-      this.downloadProgress = {
-        filesTotal: 0,
-        filesLoaded: 0,
-        isDownloading: true,
-      };
-
-      this.notifyRenderer("download-started", this.downloadProgress);
-
-      const remoteVersion = await this.getRemoteVersion();
-      let manifestURL = `${this.cdnUrl}/versions/${remoteVersion}.json`;
-      log.info("Fetching manifest from ", manifestURL)
-      const manifestResponse = await fetch(manifestURL);
-
-      if (!manifestResponse.ok) {
-        throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`,
-        );
-      }
-
-      this.versionManifest = (await manifestResponse.json()) as VersionManifest;
-
-      const filesToCheck = this.getPlatformFiles(this.versionManifest);
-      await this.checkFiles(filesToCheck);
-    } catch (error) {
-      this.downloadProgress = {
-        ...this.downloadProgress,
-        isDownloading: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-      this.notifyRenderer("download-error", this.downloadProgress);
-      throw error;
-    }
-  }
-
-  async cancelDownload(): Promise<void> {
-    if (this.currentDownloadQueue) {
-      this.currentDownloadQueue.clear();
-      this.currentDownloadQueue = null;
-    }
-
-    this.downloadProgress = {
-      ...this.downloadProgress,
-      isDownloading: false,
-      isRepairing: false,
-      currentFile: "Téléchargement annulé",
-    };
-
-    this.notifyRenderer("download-cancelled", this.downloadProgress);
+    return this.runDownload(false);
   }
 
   async repairClient(): Promise<void> {
+    return this.runDownload(true);
+  }
+
+  private async runDownload(isRepairing: boolean): Promise<void> {
     if (this.downloadProgress.isDownloading) {
       throw new Error("Download or repair already in progress");
     }
 
+    const controller = new AbortController();
+    this.downloadController = controller;
+    const completion = Promise.withResolvers<void>();
+    this.downloadSettled = completion.promise;
+    const { signal } = controller;
+    const startedAt = Date.now();
+    const operation = isRepairing ? "repair" : "install";
+    let phase = "resolve-version";
+    let remoteVersion: string | undefined;
+    this.versionManifest = null;
+    this.downloadProgress = {
+      filesTotal: 0,
+      filesLoaded: 0,
+      isDownloading: true,
+      isRepairing,
+      currentFile: isRepairing ? "Initialisation de la réparation..." : undefined,
+    };
     try {
-      this.downloadProgress = {
-        filesTotal: 0,
-        filesLoaded: 0,
-        isDownloading: true,
-        isRepairing: true,
-        currentFile: "Initialisation de la réparation...",
-      };
-
+      log.info("GameUpdater: Operation started", {
+        operation,
+        environment: this.getEnvironment(),
+        forcedVersion: this.currentSettings?.devModeEnabled
+          ? this.currentSettings.devForceVersion
+          : undefined,
+        platform: process.platform,
+        architecture: process.arch,
+        installPath: this.gameClientPath,
+        cdnUrl: this.cdnUrl,
+      });
       this.notifyRenderer("download-started", this.downloadProgress);
 
-      const remoteVersion = await this.getRemoteVersion();
-      const manifestResponse = await fetch(
-        `${this.cdnUrl}/versions/${remoteVersion}.json`,
+      remoteVersion = await this.getRemoteVersion(signal);
+      signal.throwIfAborted();
+      phase = "fetch-manifest";
+      const manifestURL = `${this.cdnUrl}/versions/${remoteVersion}.json`;
+      log.info("GameUpdater: Fetching manifest", { url: manifestURL });
+      const manifest = await this.fetchResource<VersionManifest>(
+        manifestURL,
+        (response) => response.json(),
+        "manifest",
+        signal,
       );
+      signal.throwIfAborted();
+      this.versionManifest = manifest;
 
-      if (!manifestResponse.ok) {
-        throw new Error(
-          `Failed to fetch version manifest: ${manifestResponse.status}`,
-        );
-      }
-
-      this.versionManifest = (await manifestResponse.json()) as VersionManifest;
-
+      phase = "check-and-download-files";
       const filesToCheck = this.getPlatformFiles(this.versionManifest);
-
-      this.downloadProgress.currentFile =
-        "Vérification de l'intégrité des fichiers...";
+      log.info("GameUpdater: Manifest loaded", {
+        requestedVersion: remoteVersion,
+        manifestVersion: this.versionManifest.version,
+        platform: getPlatformManifestEntry(),
+        filesTotal: filesToCheck.length,
+      });
+      if (isRepairing) {
+        this.downloadProgress.currentFile =
+          "Vérification de l'intégrité des fichiers...";
+        this.notifyRenderer("download-progress", this.downloadProgress);
+      }
+      await this.checkFiles(filesToCheck, signal);
+      signal.throwIfAborted();
+      phase = "finalize";
+      this.downloadProgress.currentFile = "Nettoyage des fichiers obsolètes...";
       this.notifyRenderer("download-progress", this.downloadProgress);
-
-      await this.checkFiles(filesToCheck, true);
+      await this.cleanupObsoleteFiles(this.versionManifest, signal);
+      signal.throwIfAborted();
+      await this.downloadComplete();
+      log.info("GameUpdater: Operation completed", {
+        operation,
+        version: remoteVersion,
+        elapsedMs: Date.now() - startedAt,
+        filesTotal: this.downloadProgress.filesTotal,
+      });
     } catch (error) {
+      // An old cancelled operation must never overwrite a newer attempt's state.
+      if (signal.aborted) return;
+      log.error("GameUpdater: Operation failed", JSON.stringify({
+        operation,
+        phase,
+        version: remoteVersion,
+        elapsedMs: Date.now() - startedAt,
+        installPath: this.gameClientPath,
+        filesLoaded: this.downloadProgress.filesLoaded,
+        filesTotal: this.downloadProgress.filesTotal,
+        error: getErrorDetails(error),
+      }));
       this.downloadProgress = {
         ...this.downloadProgress,
         isDownloading: false,
@@ -393,7 +432,31 @@ export class GameUpdater implements AppModule {
       };
       this.notifyRenderer("download-error", this.downloadProgress);
       throw error;
+    } finally {
+      if (this.downloadController === controller) {
+        this.downloadController = null;
+        this.downloadSettled = null;
+      }
+      completion.resolve();
     }
+  }
+
+  async cancelDownload(): Promise<void> {
+    if (!this.downloadController) return;
+    log.info("GameUpdater: Cancellation requested", {
+      filesLoaded: this.downloadProgress.filesLoaded,
+      filesTotal: this.downloadProgress.filesTotal,
+    });
+    this.downloadController.abort();
+    // Finish in-flight filesystem work before allowing a new installation.
+    await this.downloadSettled;
+    this.downloadProgress = {
+      ...this.downloadProgress,
+      isDownloading: false,
+      isRepairing: false,
+      currentFile: "Téléchargement annulé",
+    };
+    this.notifyRenderer("download-cancelled", this.downloadProgress);
   }
 
   async openGameDirectory(): Promise<void> {
@@ -416,11 +479,11 @@ export class GameUpdater implements AppModule {
 
   private async checkFiles(
     files: FileManifest[],
-    forceCheck = false,
+    signal: AbortSignal,
   ): Promise<void> {
     if (!existsSync(this.gameClientPath)) {
       mkdirSync(this.gameClientPath, { recursive: true });
-      await this.downloadFiles(files);
+      await this.downloadFiles(files, signal);
       return;
     }
 
@@ -431,9 +494,7 @@ export class GameUpdater implements AppModule {
     const filesToDownload: FileManifest[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      if (!this.downloadProgress.isDownloading) {
-        return;
-      }
+      signal.throwIfAborted();
 
       if (i % 10 === 0) {
         this.downloadProgress.filesLoaded = i;
@@ -458,6 +519,11 @@ export class GameUpdater implements AppModule {
           filesToDownload.push(file);
         }
       } catch (error) {
+        log.warn("GameUpdater: Unable to verify local file", JSON.stringify({
+          file: file.path,
+          localPath: filePath,
+          error: getErrorDetails(error),
+        }));
         filesToDownload.push(file);
       }
 
@@ -466,110 +532,78 @@ export class GameUpdater implements AppModule {
       }
     }
 
+    log.info("GameUpdater: File check completed", {
+      filesChecked: files.length,
+      filesToDownload: filesToDownload.length,
+    });
     if (filesToDownload.length > 0) {
-      await this.downloadFiles(filesToDownload);
-    } else {
-      if (this.versionManifest) {
-        this.downloadProgress.currentFile =
-          "Nettoyage des fichiers obsolètes...";
-        this.notifyRenderer("download-progress", this.downloadProgress);
-
-        await this.cleanupObsoleteFiles(this.versionManifest);
-      }
-
-      await this.downloadComplete();
+      await this.downloadFiles(filesToDownload, signal);
     }
   }
 
-  private async downloadFiles(files: FileManifest[]): Promise<void> {
+  private async downloadFiles(
+    files: FileManifest[],
+    operationSignal: AbortSignal,
+  ): Promise<void> {
+    operationSignal.throwIfAborted();
     this.downloadProgress.filesTotal = files.length;
     this.downloadProgress.filesLoaded = 0;
     this.notifyRenderer("download-progress", this.downloadProgress);
+    log.info("GameUpdater: Downloading files", {
+      filesTotal: files.length,
+      concurrency: 3,
+    });
 
     const queue = new PQueue({ concurrency: 3 });
-    this.currentDownloadQueue = queue;
+    const batchController = new AbortController();
+    const signal = AbortSignal.any([operationSignal, batchController.signal]);
+    let firstError: unknown;
 
-    queue.on("active", () => {
-      this.notifyRenderer("download-progress", this.downloadProgress);
-    });
-
-    queue.on("error", (error) => {
-      log.error("Download queue error:", error);
-      this.downloadProgress.error = error.message;
-      this.notifyRenderer("download-error", this.downloadProgress);
-    });
-
-    const downloadPromises = files.map((file) =>
-      queue.add(() => this.downloadAndSaveFile(file), {
-        priority: 1,
+    // Drain skipped jobs instead of queue.clear(), which leaves their promises pending.
+    // Catch inside each job so the queue cannot start another request after a failure.
+    await Promise.all(files.map((file) =>
+      queue.add(async () => {
+        if (signal.aborted) return;
+        try {
+          await this.downloadAndSaveFile(file, signal);
+        } catch (error) {
+          if (signal.aborted) return;
+          firstError = error;
+          batchController.abort();
+        }
       }),
-    );
-
-    try {
-      await Promise.all(downloadPromises);
-
-      if (!this.downloadProgress.isDownloading) {
-        this.currentDownloadQueue = null;
-        return;
-      }
-
-      if (this.versionManifest) {
-        this.downloadProgress.currentFile =
-          "Nettoyage des fichiers obsolètes...";
-        this.notifyRenderer("download-progress", this.downloadProgress);
-
-        await this.cleanupObsoleteFiles(this.versionManifest);
-      }
-
-      this.currentDownloadQueue = null;
-      await this.downloadComplete();
-    } catch (error) {
-      this.currentDownloadQueue = null;
-      this.downloadProgress.error =
-        error instanceof Error ? error.message : "Download failed";
-      this.notifyRenderer("download-error", this.downloadProgress);
-      throw error;
-    }
+    ));
+    operationSignal.throwIfAborted();
+    if (batchController.signal.aborted) throw firstError;
   }
 
-  private async downloadAndSaveFile(file: FileManifest): Promise<void> {
-    if (!this.downloadProgress.isDownloading) {
-      throw new Error("Download cancelled");
-    }
-
+  private async downloadAndSaveFile(
+    file: FileManifest,
+    signal: AbortSignal,
+  ): Promise<void> {
+    signal.throwIfAborted();
+    const startedAt = Date.now();
+    const filePath = join(this.gameClientPath, file.path);
+    const fileUrl = `${this.cdnUrl}/artifacts/${file.hash.substring(0, 2)}/${file.hash}`;
+    let phase = "download";
     try {
-      const filePath = join(this.gameClientPath, file.path);
-      const fileUrl = `${this.cdnUrl}/artifacts/${file.hash.substring(0, 2)}/${
-        file.hash
-      }`;
-
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(
-          `Failed to download file: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      const fileBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(fileBuffer);
-
-      if (!this.downloadProgress.isDownloading) {
-        throw new Error("Download cancelled");
-      }
-
+      const fileBuffer = await this.fetchResource(
+        fileUrl,
+        (response) => response.arrayBuffer(),
+        "artifact",
+        signal,
+      );
+      signal.throwIfAborted();
+      phase = "write-file";
       const dir = join(
         this.gameClientPath,
         file.path.split("/").slice(0, -1).join("/"),
       );
-      if (dir && !existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-
-      writeFileSync(filePath, buffer);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(filePath, Buffer.from(fileBuffer));
 
       this.downloadProgress.filesLoaded++;
       this.downloadProgress.currentFile = file.path;
-
       if (
         this.downloadProgress.filesLoaded % 3 === 0 ||
         this.downloadProgress.filesLoaded === this.downloadProgress.filesTotal
@@ -577,10 +611,17 @@ export class GameUpdater implements AppModule {
         this.notifyRenderer("download-progress", this.downloadProgress);
       }
     } catch (error) {
-      throw new Error(
-        `Failed to download file ${file.path}: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+      throw new OperationError(
+        `Failed to download file ${file.path}: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          phase,
+          file: file.path,
+          localPath: filePath,
+          url: fileUrl,
+          expectedHash: file.hash,
+          elapsedMs: Date.now() - startedAt,
+        },
+        error,
       );
     }
   }
@@ -602,7 +643,10 @@ export class GameUpdater implements AppModule {
     this.notifyRenderer("download-complete", this.downloadProgress);
   }
 
-  private async cleanupObsoleteFiles(manifest: VersionManifest): Promise<void> {
+  private async cleanupObsoleteFiles(
+    manifest: VersionManifest,
+    signal: AbortSignal,
+  ): Promise<void> {
     if (!existsSync(this.gameClientPath)) {
       return;
     }
@@ -617,6 +661,7 @@ export class GameUpdater implements AppModule {
       const foldersToCheck: string[] = [];
 
       for (const localFile of localFiles) {
+        signal.throwIfAborted();
         if (
           !expectedFilePaths.has(localFile) &&
           !this.isExcludedFromCleanup(localFile)
@@ -635,9 +680,11 @@ export class GameUpdater implements AppModule {
       for (const fileToRemove of filesToRemove) {
         try {
           const fullPath = join(this.gameClientPath, fileToRemove);
+          signal.throwIfAborted();
           await unlink(fullPath);
           log.info(`Removed obsolete file: ${fileToRemove}`);
         } catch (error) {
+          if (signal.aborted) throw error;
           log.warn(`Failed to remove file ${fileToRemove}:`, error);
         }
       }
@@ -648,15 +695,21 @@ export class GameUpdater implements AppModule {
           const folderContents = await readdir(fullPath);
 
           if (folderContents.length === 0) {
+            signal.throwIfAborted();
             await rmdir(fullPath);
             log.info(`Removed empty directory: ${folder}`);
           }
         } catch (error) {
+          if (signal.aborted) throw error;
           // Ignore non-critical errors
         }
       }
     } catch (error) {
-      log.warn("Failed to cleanup obsolete files:", error);
+      if (signal.aborted) throw error;
+      log.warn(
+        "Failed to cleanup obsolete files:",
+        JSON.stringify(getErrorDetails(error)),
+      );
     }
   }
 
