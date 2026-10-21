@@ -16,10 +16,14 @@ import { ALLOWED_EXTERNAL_ORIGINS } from "./config/allowedUrls.js";
 import { getSettingsManager } from "./services/SettingsManager.js";
 import { app } from "electron";
 import type { ModuleContext } from "./ModuleContext.js";
+import { Agent, setGlobalDispatcher } from "undici";
 
 export async function initApp(initConfig: AppInitConfig) {
   // Initialize logging first
   setupLogger();
+
+  // Use IPv4 for Node fetch, keeping Undici's default 10-second connection timeout.
+  setGlobalDispatcher(new Agent({ connect: { family: 4, timeout: 10_000 } }));
 
   // Load settings before any modules are initialized
   const settingsManager = getSettingsManager();
