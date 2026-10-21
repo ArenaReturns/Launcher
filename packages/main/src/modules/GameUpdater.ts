@@ -127,6 +127,7 @@ export class GameUpdater implements AppModule {
     "game/saves",
     "game/replays",
     "game/logs",
+    "game/shortcuts.xml",
   ];
 
   constructor(environment: string = "production") {
@@ -234,7 +235,8 @@ export class GameUpdater implements AppModule {
   }
 
   private getEnvironment(): string {
-    return this.currentSettings?.devModeEnabled && this.currentSettings.devCdnEnvironment
+    return this.currentSettings?.devModeEnabled &&
+      this.currentSettings.devCdnEnvironment
       ? this.currentSettings.devCdnEnvironment
       : this.environment;
   }
@@ -268,7 +270,9 @@ export class GameUpdater implements AppModule {
     timeoutMs?: number,
   ): Promise<T> {
     const startedAt = Date.now();
-    const timeoutSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+    const timeoutSignal = timeoutMs
+      ? AbortSignal.timeout(timeoutMs)
+      : undefined;
     const signals = [signal, timeoutSignal].filter(
       (entry): entry is AbortSignal => entry !== undefined,
     );
@@ -354,7 +358,9 @@ export class GameUpdater implements AppModule {
       filesLoaded: 0,
       isDownloading: true,
       isRepairing,
-      currentFile: isRepairing ? "Initialisation de la réparation..." : undefined,
+      currentFile: isRepairing
+        ? "Initialisation de la réparation..."
+        : undefined,
     };
     try {
       log.info("GameUpdater: Operation started", {
@@ -414,16 +420,19 @@ export class GameUpdater implements AppModule {
     } catch (error) {
       // An old cancelled operation must never overwrite a newer attempt's state.
       if (signal.aborted) return;
-      log.error("GameUpdater: Operation failed", JSON.stringify({
-        operation,
-        phase,
-        version: remoteVersion,
-        elapsedMs: Date.now() - startedAt,
-        installPath: this.gameClientPath,
-        filesLoaded: this.downloadProgress.filesLoaded,
-        filesTotal: this.downloadProgress.filesTotal,
-        error: getErrorDetails(error),
-      }));
+      log.error(
+        "GameUpdater: Operation failed",
+        JSON.stringify({
+          operation,
+          phase,
+          version: remoteVersion,
+          elapsedMs: Date.now() - startedAt,
+          installPath: this.gameClientPath,
+          filesLoaded: this.downloadProgress.filesLoaded,
+          filesTotal: this.downloadProgress.filesTotal,
+          error: getErrorDetails(error),
+        }),
+      );
       this.downloadProgress = {
         ...this.downloadProgress,
         isDownloading: false,
@@ -519,11 +528,14 @@ export class GameUpdater implements AppModule {
           filesToDownload.push(file);
         }
       } catch (error) {
-        log.warn("GameUpdater: Unable to verify local file", JSON.stringify({
-          file: file.path,
-          localPath: filePath,
-          error: getErrorDetails(error),
-        }));
+        log.warn(
+          "GameUpdater: Unable to verify local file",
+          JSON.stringify({
+            file: file.path,
+            localPath: filePath,
+            error: getErrorDetails(error),
+          }),
+        );
         filesToDownload.push(file);
       }
 
@@ -561,18 +573,20 @@ export class GameUpdater implements AppModule {
 
     // Drain skipped jobs instead of queue.clear(), which leaves their promises pending.
     // Catch inside each job so the queue cannot start another request after a failure.
-    await Promise.all(files.map((file) =>
-      queue.add(async () => {
-        if (signal.aborted) return;
-        try {
-          await this.downloadAndSaveFile(file, signal);
-        } catch (error) {
+    await Promise.all(
+      files.map((file) =>
+        queue.add(async () => {
           if (signal.aborted) return;
-          firstError = error;
-          batchController.abort();
-        }
-      }),
-    ));
+          try {
+            await this.downloadAndSaveFile(file, signal);
+          } catch (error) {
+            if (signal.aborted) return;
+            firstError = error;
+            batchController.abort();
+          }
+        }),
+      ),
+    );
     operationSignal.throwIfAborted();
     if (batchController.signal.aborted) throw firstError;
   }
