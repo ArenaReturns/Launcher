@@ -413,7 +413,14 @@ export class GameClient implements AppModule {
     env: NodeJS.ProcessEnv = process.env,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = spawn(executable, args, { cwd, env, stdio: "ignore" });
+    const child = spawn(executable, args, {
+      cwd,
+      env,
+      stdio: "ignore",
+      detached: true,
+      windowsHide: true,
+    });
+    child.unref();
 
       child.once("error", reject);
       child.once("spawn", resolve);
